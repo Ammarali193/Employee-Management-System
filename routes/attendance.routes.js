@@ -105,4 +105,47 @@ router.post("/checkout", verifyToken, async (req, res) => {
     }
 });
 
+// ==============================
+// 🔹 MONTHLY ATTENDANCE REPORT
+// ==============================
+router.get("/monthly/:employeeId", verifyToken, async (req, res) => {
+    try {
+        const { employeeId } = req.params;
+        const { month, year } = req.query;
+
+        if (!month || !year) {
+            return res.status(400).json({
+                message: "Month and year are required"
+            });
+        }
+
+        const result = await pool.query(
+            `
+            SELECT 
+                COUNT(*) FILTER (WHERE check_out IS NOT NULL) AS present_days,
+                COALESCE(SUM(work_hours), 0) AS total_hours
+            FROM attendance
+            WHERE employee_id = $1
+            AND EXTRACT(MONTH FROM check_in) = $2
+            AND EXTRACT(YEAR FROM check_in) = $3
+            `,
+            [employeeId, month, year]
+        );
+
+        res.json({
+            employee_id: employeeId,
+            month,
+            year,
+            present_days: result.rows[0].present_days,
+            total_hours: result.rows[0].total_hours
+        });
+
+    } catch (error) {
+        console.error("Monthly report error:", error);
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+
 module.exports = router;
