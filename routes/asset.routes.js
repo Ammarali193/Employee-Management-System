@@ -2,9 +2,10 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
+const { logAction } = require("../middlewares/audit.middleware");
 
 // ==============================
-// 🔹 ADD NEW ASSET (Admin Only)
+// ADD NEW ASSET (Admin Only)
 // ==============================
 router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
     try {
@@ -39,7 +40,7 @@ router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
 });
 
 // ==============================
-// 🔹 ASSIGN ASSET TO EMPLOYEE (Admin Only)
+// ASSIGN ASSET TO EMPLOYEE (Admin Only)
 // ==============================
 router.post("/assign", verifyToken, authorizeRoles("Admin"), async (req, res) => {
     try {
@@ -63,23 +64,25 @@ router.post("/assign", verifyToken, authorizeRoles("Admin"), async (req, res) =>
             });
         }
 
-        // Assign asset
         await pool.query(
-            `
-            INSERT INTO asset_assignments (asset_id, employee_id)
-            VALUES ($1, $2)
-            `,
+            "INSERT INTO asset_assignments (asset_id, employee_id) VALUES ($1, $2)",
             [asset_id, employee_id]
         );
 
-        // Update asset status
         await pool.query(
             "UPDATE assets SET status = 'assigned' WHERE id = $1",
             [asset_id]
         );
 
+        // 🔥 IMPORTANT: Audit BEFORE res.json
+        await pool.query(
+            `INSERT INTO audit_logs (user_id, action, module, details)
+             VALUES ($1,$2,$3,$4)`,
+            [1, "Assigned Asset", "Asset Module", "Test Log"]
+        );
+
         res.json({
-            message: "Asset assigned successfully"
+            message: "Assigned + Logged"
         });
 
     } catch (error) {
@@ -91,7 +94,7 @@ router.post("/assign", verifyToken, authorizeRoles("Admin"), async (req, res) =>
 });
 
 // ==============================
-// 🔹 RETURN ASSET (Admin Only)
+// RETURN ASSET (Admin Only)
 // ==============================
 router.post("/return", verifyToken, authorizeRoles("Admin"), async (req, res) => {
     try {

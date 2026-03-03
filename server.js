@@ -7,6 +7,9 @@ const pool = require("./config/db");
 const app = express();
 app.use(express.json());
 
+const { autoAudit } = require("./middlewares/audit.middleware");
+app.use(autoAudit);
+
 // ==============================
 // CREATE EMPLOYEES TABLE
 // ==============================
@@ -150,7 +153,7 @@ const createAssetAssignmentsTable = async () => {
 };
 
 // ==============================
-// CREATE SALARY TABLE
+// 🔹 CREATE SALARY TABLE
 // ==============================
 const createSalaryTable = async () => {
     const query = `
@@ -164,9 +167,56 @@ const createSalaryTable = async () => {
 
     try {
         await pool.query(query);
-        console.log("Salary table ready");
+        console.log("✅ Salary table ready");
     } catch (err) {
-        console.error("Error creating salary table:", err);
+        console.error("❌ Error creating salary table:", err);
+    }
+};
+
+// ==============================
+// 🔹 CREATE AUDIT LOG TABLE
+// ==============================
+const createAuditLogTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS audit_logs (
+            id SERIAL PRIMARY KEY,
+            user_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+            action VARCHAR(255) NOT NULL,
+            module VARCHAR(100),
+            details TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Audit log table ready");
+    } catch (err) {
+        console.error("❌ Error creating audit log table:", err);
+    }
+};
+
+// ==============================
+// 🔹 CREATE PERFORMANCE TABLE
+// ==============================
+const createPerformanceTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS performance_reviews (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            reviewer_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+            rating INTEGER CHECK (rating BETWEEN 1 AND 5),
+            review_period VARCHAR(100),
+            comments TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Performance table ready");
+    } catch (err) {
+        console.error("❌ Error creating performance table:", err);
     }
 };
 
@@ -193,9 +243,9 @@ const insertDefaultLeaveTypes = async () => {
     }
 };
 
-// ==============================
+// ===============================
 // SEED DEFAULT ADMIN (ONE-TIME)
-// ==============================
+// ===============================
 const seedAdmin = async () => {
     try {
         const email = process.env.DEFAULT_ADMIN_EMAIL || "admin@company.com";
@@ -232,11 +282,12 @@ const initializeTables = async () => {
     await createAttendanceTable();
     await createLeaveTypesTable();
     await createLeaveRequestsTable();
-    await createSalaryTable();
     await insertDefaultLeaveTypes();
     await createAssetsTable();
     await createAssetAssignmentsTable();
-    await seedAdmin();
+    await createSalaryTable();
+    await createAuditLogTable();
+    await createPerformanceTable();
 };
 
 initializeTables();
@@ -257,18 +308,26 @@ const authRoutes = require("./routes/auth.routes");
 const attendanceRoutes = require("./routes/attendance.routes");
 const leaveRoutes = require("./routes/leave.routes");
 const assetRoutes = require("./routes/asset.routes");
+const payrollRoutes = require("./routes/payroll.routes");
+const dashboardRoutes = require("./routes/dashboard.routes");
+const employeeDashboardRoutes = require("./routes/employeeDashboard.routes");
+const performanceRoutes = require("./routes/performance.routes");
 
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);
 app.use("/api/leave", leaveRoutes);
 app.use("/api/assets", assetRoutes);
+app.use("/api/payroll", payrollRoutes);
+app.use("/api/dashboard", dashboardRoutes);
+app.use("/api/employee-dashboard", employeeDashboardRoutes);
+app.use("/api/performance", performanceRoutes);
 
 // ==============================
 // ROOT ROUTE
 // ==============================
 app.get("/", (req, res) => {
-    res.send("EMS Backend Running");
+    res.send("Server Working");
 });
 
 // ==============================
@@ -279,3 +338,4 @@ const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
 });
+
