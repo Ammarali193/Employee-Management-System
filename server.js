@@ -39,6 +39,26 @@ const createEmployeesTable = async () => {
 };
 
 // ==============================
+// 🔹 CREATE DEPARTMENTS TABLE
+// ==============================
+const createDepartmentsTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS departments (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100) UNIQUE NOT NULL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Departments table ready");
+    } catch (err) {
+        console.error("❌ Error creating departments table:", err);
+    }
+};
+
+// ==============================
 // CREATE ATTENDANCE TABLE
 // ==============================
 const createAttendanceTable = async () => {
@@ -221,6 +241,146 @@ const createPerformanceTable = async () => {
 };
 
 // ==============================
+// 🔹 CREATE LOANS TABLE
+// ==============================
+const createLoansTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS loans (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            amount NUMERIC(10,2) NOT NULL,
+            reason TEXT,
+            status VARCHAR(20) DEFAULT 'pending',
+            applied_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            approved_by INTEGER REFERENCES employees(id)
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Loans table ready");
+    } catch (err) {
+        console.error("❌ Error creating loans table:", err);
+    }
+};
+
+// ==============================
+// 🔹 CREATE LEAVE BALANCE TABLE
+// ==============================
+const createLeaveBalanceTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS leave_balances (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            leave_type_id INTEGER REFERENCES leave_types(id),
+            total_leaves INTEGER DEFAULT 14,
+            used_leaves INTEGER DEFAULT 0
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Leave balance table ready");
+    } catch (err) {
+        console.error("❌ Error creating leave balance table:", err);
+    }
+};
+
+// ==============================
+// 🔹 CREATE JOB POSTS TABLE
+// ==============================
+const createJobPostsTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS job_posts (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(150) NOT NULL,
+            department VARCHAR(100),
+            description TEXT,
+            status VARCHAR(20) DEFAULT 'open',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Job posts table ready");
+    } catch (err) {
+        console.error("❌ Error creating job posts table:", err);
+    }
+};
+
+// ==============================
+// 🔹 CREATE CANDIDATES TABLE
+// ==============================
+const createCandidatesTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS candidates (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(150) NOT NULL,
+            email VARCHAR(150),
+            phone VARCHAR(20),
+            resume_url TEXT,
+            job_id INTEGER REFERENCES job_posts(id) ON DELETE CASCADE,
+            status VARCHAR(30) DEFAULT 'applied',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Candidates table ready");
+    } catch (err) {
+        console.error("❌ Error creating candidates table:", err);
+    }
+};
+
+// ==============================
+// 🔹 CREATE INTERVIEWS TABLE
+// ==============================
+const createInterviewsTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS interviews (
+            id SERIAL PRIMARY KEY,
+            candidate_id INTEGER REFERENCES candidates(id) ON DELETE CASCADE,
+            interviewer_id INTEGER REFERENCES employees(id),
+            interview_date TIMESTAMP,
+            status VARCHAR(30) DEFAULT 'scheduled',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Interviews table ready");
+    } catch (err) {
+        console.error("❌ Error creating interviews table:", err);
+    }
+};
+
+// ==============================
+// 🔹 CREATE EXIT REQUESTS TABLE
+// ==============================
+const createExitRequestsTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS exit_requests (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            reason TEXT,
+            status VARCHAR(30) DEFAULT 'pending',
+            requested_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            approved_by INTEGER REFERENCES employees(id)
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Exit requests table ready");
+    } catch (err) {
+        console.error("❌ Error creating exit requests table:", err);
+    }
+};
+
+// ==============================
 // INSERT DEFAULT LEAVE TYPES
 // ==============================
 const insertDefaultLeaveTypes = async () => {
@@ -279,6 +439,7 @@ const seedAdmin = async () => {
 // ==============================
 const initializeTables = async () => {
     await createEmployeesTable();
+    await createDepartmentsTable();
     await createAttendanceTable();
     await createLeaveTypesTable();
     await createLeaveRequestsTable();
@@ -288,6 +449,12 @@ const initializeTables = async () => {
     await createSalaryTable();
     await createAuditLogTable();
     await createPerformanceTable();
+    await createLoansTable();
+    await createLeaveBalanceTable();
+    await createJobPostsTable();
+    await createCandidatesTable();
+    await createInterviewsTable();
+    await createExitRequestsTable();
 };
 
 initializeTables();
@@ -312,6 +479,13 @@ const payrollRoutes = require("./routes/payroll.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const employeeDashboardRoutes = require("./routes/employeeDashboard.routes");
 const performanceRoutes = require("./routes/performance.routes");
+const loanRoutes = require("./routes/loan.routes");
+const departmentRoutes = require("./routes/department.routes");
+const leaveBalanceRoutes = require("./routes/leaveBalance.routes");
+const jobRoutes = require("./routes/job.routes");
+const candidateRoutes = require("./routes/candidate.routes");
+const interviewRoutes = require("./routes/interview.routes");
+const exitRoutes = require("./routes/exit.routes");
 
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
@@ -322,6 +496,13 @@ app.use("/api/payroll", payrollRoutes);
 app.use("/api/dashboard", dashboardRoutes);
 app.use("/api/employee-dashboard", employeeDashboardRoutes);
 app.use("/api/performance", performanceRoutes);
+app.use("/api/loans", loanRoutes);
+app.use("/api/departments", departmentRoutes);
+app.use("/api/leave-balance", leaveBalanceRoutes);
+app.use("/api/jobs", jobRoutes);
+app.use("/api/candidates", candidateRoutes);
+app.use("/api/interviews", interviewRoutes);
+app.use("/api/exit", exitRoutes);
 
 // ==============================
 // ROOT ROUTE

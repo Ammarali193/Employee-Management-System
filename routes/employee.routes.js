@@ -55,6 +55,33 @@ router.get("/", async (req, res) => {
     }
 });
 
+// ==============================
+// 🔹 GET MANAGER TEAM
+// ==============================
+router.get("/my-team", verifyToken, async (req, res) => {
+    try {
+
+        const managerId = req.user.id;
+
+        const result = await pool.query(
+            `
+            SELECT id, first_name, last_name, department, role
+            FROM employees
+            WHERE manager_id = $1
+            `,
+            [managerId]
+        );
+
+        res.json({
+            team_members: result.rows
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // Get single employee by id
 router.get("/:id", async (req, res) => {
     try {
@@ -73,6 +100,36 @@ router.get("/:id", async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Server Error" });
+    }
+});
+
+// ==============================
+// 🔹 ASSIGN MANAGER TO EMPLOYEE
+// ==============================
+router.put("/assign-manager/:id", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+
+        const { id } = req.params;
+        const { manager_id } = req.body;
+
+        const result = await pool.query(
+            `
+            UPDATE employees
+            SET manager_id = $1
+            WHERE id = $2
+            RETURNING id, first_name, last_name, manager_id
+            `,
+            [manager_id, id]
+        );
+
+        res.json({
+            message: "Manager assigned successfully",
+            employee: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 });
 

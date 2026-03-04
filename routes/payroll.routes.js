@@ -105,7 +105,21 @@ router.get("/monthly/:employeeId", verifyToken, authorizeRoles("Admin"), async (
         const leaveDays = parseInt(leaveResult.rows[0].leave_days) || 0;
 
         const paidDays = presentDays + leaveDays;
-        const finalSalary = dailySalary * paidDays;
+        const grossSalary = dailySalary * paidDays;
+
+        // Get approved loan amount
+        const loanResult = await pool.query(
+            `
+            SELECT SUM(amount) AS total_loan
+            FROM loans
+            WHERE employee_id = $1
+            AND status = 'approved'
+            `,
+            [employeeId]
+        );
+
+        const loanAmount = parseFloat(loanResult.rows[0].total_loan) || 0;
+        const finalSalary = grossSalary - loanAmount;
 
         res.json({
             employee_id: employeeId,
@@ -115,7 +129,9 @@ router.get("/monthly/:employeeId", verifyToken, authorizeRoles("Admin"), async (
             present_days: presentDays,
             approved_leave_days: leaveDays,
             paid_days: paidDays,
-            calculated_salary: finalSalary.toFixed(2)
+            gross_salary: grossSalary.toFixed(2),
+            loan_deduction: loanAmount,
+            final_salary: finalSalary.toFixed(2)
         });
 
     } catch (error) {
