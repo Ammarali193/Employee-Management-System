@@ -10,6 +10,14 @@ app.use(express.json());
 const { autoAudit } = require("./middlewares/audit.middleware");
 app.use(autoAudit);
 
+process.on("unhandledRejection", (reason) => {
+    console.error("UNHANDLED REJECTION:", reason);
+});
+
+process.on("uncaughtException", (error) => {
+    console.error("UNCAUGHT EXCEPTION:", error);
+});
+
 // ==============================
 // CREATE EMPLOYEES TABLE
 // ==============================
@@ -41,6 +49,270 @@ const createEmployeesTable = async () => {
 // ==============================
 // 🔹 CREATE DEPARTMENTS TABLE
 // ==============================
+// ==============================
+// UPDATE EMPLOYEES TABLE
+// ==============================
+const updateEmployeesTable = async () => {
+    try {
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS dob DATE;
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS gender VARCHAR(20);
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS phone VARCHAR(20);
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS grade VARCHAR(50);
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS manager_id INTEGER REFERENCES employees(id);
+        `);
+
+        console.log("✅ Employees table updated");
+    } catch (err) {
+        console.error("❌ Employee table update error:", err);
+    }
+};
+
+// ==============================
+// ADD LOCATION COLUMN
+// ==============================
+const addEmployeeLocationColumn = async () => {
+    try {
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS location VARCHAR(100);
+        `);
+
+        console.log("✅ Employee location column ready");
+
+    } catch (err) {
+        console.error("❌ Location column error:", err);
+    }
+};
+
+// ==============================
+// ADD RFID CARD COLUMN
+// ==============================
+const addRFIDColumn = async () => {
+    try {
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS rfid_card_id VARCHAR(100) UNIQUE;
+        `);
+
+        console.log("✅ RFID column ready");
+
+    } catch (err) {
+        console.error("RFID column error:", err);
+    }
+};
+
+// ==============================
+// ADD QR CODE COLUMN
+// ==============================
+const addQRCodeColumn = async () => {
+    try {
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS qr_code VARCHAR(100) UNIQUE;
+        `);
+
+        console.log("✅ QR code column ready");
+
+    } catch (err) {
+        console.error("QR column error:", err);
+    }
+};
+
+// ==============================
+// ADD BIOMETRIC ID COLUMN
+// ==============================
+const addBiometricColumn = async () => {
+    try {
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS biometric_id VARCHAR(100) UNIQUE;
+        `);
+
+        console.log("✅ Biometric ID column ready");
+
+    } catch (err) {
+        console.error("Biometric column error:", err);
+    }
+};
+
+const addDeviceCodeColumn = async () => {
+    try {
+
+        await pool.query(`
+        ALTER TABLE employees
+        ADD COLUMN IF NOT EXISTS device_employee_code VARCHAR(50) UNIQUE;
+        `);
+
+        console.log("✅ Device employee code ready");
+
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+// ==============================
+// CREATE EMERGENCY CONTACTS TABLE
+// ==============================
+const createEmergencyContactsTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS emergency_contacts (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            name VARCHAR(150) NOT NULL,
+            relationship VARCHAR(100),
+            phone VARCHAR(20),
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Emergency contacts table ready");
+    } catch (err) {
+        console.error("❌ Error creating emergency contacts table:", err);
+    }
+};
+
+// ==============================
+// CREATE EMPLOYMENT HISTORY TABLE
+// ==============================
+const createEmploymentHistoryTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS employment_history (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            role VARCHAR(100),
+            department VARCHAR(100),
+            change_type VARCHAR(50),
+            effective_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Employment history table ready");
+    } catch (err) {
+        console.error("❌ Error creating employment history table:", err);
+    }
+};
+
+// ==============================
+// CREATE EMPLOYEE DOCUMENTS TABLE
+// ==============================
+const createEmployeeDocumentsTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS employee_documents (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            document_type VARCHAR(100),
+            file_url TEXT,
+            expiry_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Employee documents table ready");
+    } catch (err) {
+        console.error("❌ Error creating employee documents table:", err);
+    }
+};
+
+// ==============================
+// CREATE CUSTOM FIELDS TABLE
+// ==============================
+const createCustomFieldsTable = async () => {
+    const query = `
+        CREATE TABLE IF NOT EXISTS employee_custom_fields (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            field_name VARCHAR(150) NOT NULL,
+            field_value TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+    `;
+
+    try {
+        await pool.query(query);
+        console.log("✅ Custom fields table ready");
+    } catch (err) {
+        console.error("❌ Error creating custom fields table:", err);
+    }
+};
+
+// ==============================
+// CREATE SHIFTS TABLE
+// ==============================
+const createShiftsTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS shifts (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100),
+            start_time TIME,
+            end_time TIME,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Shifts table ready");
+
+    } catch (err) {
+        console.error("Shift table error:", err);
+    }
+};
+
+// ==============================
+// CREATE EMPLOYEE SHIFTS TABLE
+// ==============================
+const createEmployeeShiftsTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS employee_shifts (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            shift_id INTEGER REFERENCES shifts(id) ON DELETE CASCADE,
+            assigned_date DATE DEFAULT CURRENT_DATE
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Employee shifts table ready");
+
+    } catch (err) {
+        console.error("Employee shift error:", err);
+    }
+};
+
 const createDepartmentsTable = async () => {
     const query = `
         CREATE TABLE IF NOT EXISTS departments (
@@ -82,6 +354,80 @@ const createAttendanceTable = async () => {
 };
 
 // ==============================
+// ADD ATTENDANCE METHOD COLUMN
+// ==============================
+const addAttendanceMethodColumn = async () => {
+    try {
+        await pool.query(`
+            ALTER TABLE attendance
+            ADD COLUMN IF NOT EXISTS method VARCHAR(50);
+        `);
+        console.log("✅ Attendance method column ready");
+    } catch (err) {
+        console.error("❌ Attendance method column error:", err);
+    }
+};
+
+// ==============================
+// ADD OVERTIME COLUMN
+// ==============================
+const addOvertimeColumn = async () => {
+    try {
+
+        await pool.query(`
+            ALTER TABLE attendance
+            ADD COLUMN IF NOT EXISTS overtime_hours DECIMAL DEFAULT 0;
+        `);
+
+        console.log("✅ Overtime column ready");
+
+    } catch (err) {
+        console.error("Overtime column error:", err);
+    }
+};
+
+// ==============================
+// ADD STATUS COLUMN
+// ==============================
+const addAttendanceStatus = async () => {
+    try {
+
+        await pool.query(`
+            ALTER TABLE attendance
+            ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Present';
+        `);
+
+        console.log("✅ Attendance status column ready");
+
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+// ==============================
+// ADD GPS LOCATION FIELDS
+// ==============================
+const updateAttendanceGPS = async () => {
+    try {
+
+        await pool.query(`
+            ALTER TABLE attendance
+            ADD COLUMN IF NOT EXISTS location_lat DECIMAL;
+        `);
+
+        await pool.query(`
+            ALTER TABLE attendance
+            ADD COLUMN IF NOT EXISTS location_lng DECIMAL;
+        `);
+
+        console.log("✅ GPS location fields ready");
+
+    } catch (err) {
+        console.error(err);
+    }
+};
+
+// ==============================
 // CREATE LEAVE TYPES TABLE
 // ==============================
 const createLeaveTypesTable = async () => {
@@ -109,7 +455,7 @@ const createLeaveRequestsTable = async () => {
         CREATE TABLE IF NOT EXISTS leave_requests (
             id SERIAL PRIMARY KEY,
             employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-            leave_type_id INTEGER REFERENCES leave_types(id),
+            leave_type_id INTEGER REFERENCES leave_types(id) ON DELETE CASCADE,
             start_date DATE NOT NULL,
             end_date DATE NOT NULL,
             reason TEXT,
@@ -268,21 +614,26 @@ const createLoansTable = async () => {
 // 🔹 CREATE LEAVE BALANCE TABLE
 // ==============================
 const createLeaveBalanceTable = async () => {
-    const query = `
+    try {
+
+        const query = `
         CREATE TABLE IF NOT EXISTS leave_balances (
             id SERIAL PRIMARY KEY,
             employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
-            leave_type_id INTEGER REFERENCES leave_types(id),
-            total_leaves INTEGER DEFAULT 14,
-            used_leaves INTEGER DEFAULT 0
+            leave_type_id INTEGER REFERENCES leave_types(id) ON DELETE CASCADE,
+            total_days INTEGER DEFAULT 0,
+            used_days INTEGER DEFAULT 0,
+            remaining_days INTEGER DEFAULT 0,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
-    `;
+        `;
 
-    try {
         await pool.query(query);
-        console.log("✅ Leave balance table ready");
+
+        console.log("? Leave balance table ready");
+
     } catch (err) {
-        console.error("❌ Error creating leave balance table:", err);
+        console.error("Leave balance table error:", err);
     }
 };
 
@@ -438,9 +789,27 @@ const seedAdmin = async () => {
 // INITIALIZE DATABASE TABLES
 // ==============================
 const initializeTables = async () => {
+    console.log("Initializing database...");
+
     await createEmployeesTable();
+    await updateEmployeesTable();
+    await addEmployeeLocationColumn();
+    await addRFIDColumn();
+    await addQRCodeColumn();
+    await addBiometricColumn();
+    await addDeviceCodeColumn();
+    await createEmergencyContactsTable();
+    await createEmploymentHistoryTable();
+    await createEmployeeDocumentsTable();
+    await createCustomFieldsTable();
+    await createShiftsTable();
+    await createEmployeeShiftsTable();
     await createDepartmentsTable();
     await createAttendanceTable();
+    await addAttendanceMethodColumn();
+    await addOvertimeColumn();
+    await addAttendanceStatus();
+    await updateAttendanceGPS();
     await createLeaveTypesTable();
     await createLeaveRequestsTable();
     await insertDefaultLeaveTypes();
@@ -455,9 +824,9 @@ const initializeTables = async () => {
     await createCandidatesTable();
     await createInterviewsTable();
     await createExitRequestsTable();
-};
 
-initializeTables();
+    console.log("Database initialization completed");
+};
 
 // Version 1 payroll formula:
 // daily_salary = basic_salary / 30
@@ -486,6 +855,12 @@ const jobRoutes = require("./routes/job.routes");
 const candidateRoutes = require("./routes/candidate.routes");
 const interviewRoutes = require("./routes/interview.routes");
 const exitRoutes = require("./routes/exit.routes");
+const emergencyRoutes = require("./routes/emergency.routes");
+const employmentRoutes = require("./routes/employment.routes");
+const documentRoutes = require("./routes/documents.routes");
+const customFieldsRoutes = require("./routes/customfields.routes");
+const shiftRoutes = require("./routes/shift.routes");
+const deviceRoutes = require("./routes/device.routes");
 
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
@@ -503,6 +878,12 @@ app.use("/api/jobs", jobRoutes);
 app.use("/api/candidates", candidateRoutes);
 app.use("/api/interviews", interviewRoutes);
 app.use("/api/exit", exitRoutes);
+app.use("/api/emergency", emergencyRoutes);
+app.use("/api/employment-history", employmentRoutes);
+app.use("/api/documents", documentRoutes);
+app.use("/api/custom-fields", customFieldsRoutes);
+app.use("/api/shifts", shiftRoutes);
+app.use("/api/device", deviceRoutes);
 
 // ==============================
 // ROOT ROUTE
@@ -511,12 +892,32 @@ app.get("/", (req, res) => {
     res.send("Server Working");
 });
 
+// Global Express error handler
+app.use((err, req, res, next) => {
+    console.error("EXPRESS ERROR:", err);
+    if (res.headersSent) {
+        return next(err);
+    }
+    return res.status(500).json({ message: "Server error" });
+});
+
 // ==============================
 // START SERVER
 // ==============================
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-    console.log(`Server running on port ${PORT}`);
-});
+const startServer = async () => {
+    try {
 
+        await initializeTables();
+
+        app.listen(PORT, () => {
+            console.log(`Server running on port ${PORT}`);
+        });
+
+    } catch (error) {
+        console.error("Server startup error:", error);
+    }
+};
+
+startServer();

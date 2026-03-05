@@ -1,7 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
-const { verifyToken } = require("../middlewares/auth.middleware");
+const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
 
 // ==============================
 // ?? CHECK-IN ROUTE
@@ -54,42 +54,71 @@ router.post("/checkin", verifyToken, async (req, res) => {
 // ==============================
 router.post("/checkout", verifyToken, async (req, res) => {
     try {
-        const employeeId = req.user.id;
+        const employee_id = req.user.id;
 
-        // Find today's attendance
-        const existing = await pool.query(
+        // employee shift fetch
+        const shift = await pool.query(
             `
-            SELECT * FROM attendance
-            WHERE employee_id = $1
-            AND DATE(check_in) = CURRENT_DATE
+            SELECT s.end_time
+            FROM employee_shifts es
+            JOIN shifts s ON es.shift_id = s.id
+            WHERE es.employee_id = $1
+            ORDER BY es.assigned_date DESC, es.id DESC
+            LIMIT 1
             `,
-            [employeeId]
+            [employee_id]
         );
 
-        if (existing.rows.length === 0) {
-            return res.status(400).json({
-                message: "You have not checked in today"
-            });
+        if (shift.rows.length === 0) {
+            return res.status(400).json({ message: "Shift not assigned" });
         }
 
-        const attendance = existing.rows[0];
+        const shift_end = shift.rows[0].end_time;
 
-        if (attendance.check_out) {
+        // attendance record
+        const attendance = await pool.query(
+            `
+            SELECT * FROM attendance
+            WHERE employee_id = $1 AND DATE(check_in) = CURRENT_DATE
+            `,
+            [employee_id]
+        );
+
+        if (attendance.rows.length === 0) {
+            return res.status(404).json({ message: "Attendance record not found" });
+        }
+
+        const check_in_record = attendance.rows[0];
+
+        if (check_in_record.check_out) {
             return res.status(400).json({
                 message: "You have already checked out today"
             });
         }
 
-        // Update check_out time
+        const now = new Date();
+
+        // overtime calculation
+        const shiftEndTime = new Date();
+        const [h, m, s] = String(shift_end).split(":");
+        shiftEndTime.setHours(Number(h), Number(m), Number(s), 0);
+
+        let overtime = 0;
+
+        if (now > shiftEndTime) {
+            overtime = (now - shiftEndTime) / (1000 * 60 * 60); // hours
+        }
+
         const result = await pool.query(
             `
             UPDATE attendance
-            SET check_out = CURRENT_TIMESTAMP,
-                work_hours = EXTRACT(EPOCH FROM (CURRENT_TIMESTAMP - check_in)) / 3600
-            WHERE id = $1
-            RETURNING id, check_in, check_out, work_hours
+            SET check_out = NOW(),
+                work_hours = EXTRACT(EPOCH FROM (NOW() - check_in)) / 3600,
+                overtime_hours = $1
+            WHERE id = $2
+            RETURNING *
             `,
-            [attendance.id]
+            [overtime, check_in_record.id]
         );
 
         res.json({
@@ -98,16 +127,326 @@ router.post("/checkout", verifyToken, async (req, res) => {
         });
 
     } catch (error) {
-        console.error("Check-out error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 });
 
 // ==============================
 // 🔹 MONTHLY ATTENDANCE REPORT
 // ==============================
+router.post("/rfid/checkin", async (req, res) => {
+    try {
+
+        const { rfid_card_id } = req.body;
+
+        const employee = await pool.query(
+            `
+            SELECT id FROM employees
+            WHERE rfid_card_id = $1
+            `,
+            [rfid_card_id]
+        );
+
+        if (employee.rows.length === 0) {
+            return res.status(404).json({
+                message: "RFID card not registered"
+            });
+        }
+
+        const employee_id = employee.rows[0].id;
+
+        const result = await pool.query(
+            `
+            INSERT INTO attendance (employee_id, check_in, method)
+            VALUES ($1, NOW(), 'RFID')
+            RETURNING *
+            `,
+            [employee_id]
+        );
+
+        res.json({
+            message: "RFID check-in successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/rfid/checkout", async (req, res) => {
+    try {
+
+        const { rfid_card_id } = req.body;
+
+        const employee = await pool.query(
+            `
+            SELECT id FROM employees
+            WHERE rfid_card_id = $1
+            `,
+            [rfid_card_id]
+        );
+
+        if (employee.rows.length === 0) {
+            return res.status(404).json({
+                message: "RFID card not registered"
+            });
+        }
+
+        const employee_id = employee.rows[0].id;
+
+        const result = await pool.query(
+            `
+            UPDATE attendance
+            SET check_out = NOW()
+            WHERE employee_id = $1
+            AND DATE(check_in) = CURRENT_DATE
+            RETURNING *
+            `,
+            [employee_id]
+        );
+
+        res.json({
+            message: "RFID check-out successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/qr/checkin", async (req, res) => {
+    try {
+
+        const { qr_code } = req.body;
+
+        const employee = await pool.query(
+            `
+            SELECT id FROM employees
+            WHERE qr_code = $1
+            `,
+            [qr_code]
+        );
+
+        if (employee.rows.length === 0) {
+            return res.status(404).json({
+                message: "QR code not registered"
+            });
+        }
+
+        const employee_id = employee.rows[0].id;
+
+        const result = await pool.query(
+            `
+            INSERT INTO attendance (employee_id, check_in, method)
+            VALUES ($1, NOW(), 'QR')
+            RETURNING *
+            `,
+            [employee_id]
+        );
+
+        res.json({
+            message: "QR check-in successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/qr/checkout", async (req, res) => {
+    try {
+
+        const { qr_code } = req.body;
+
+        const employee = await pool.query(
+            `
+            SELECT id FROM employees
+            WHERE qr_code = $1
+            `,
+            [qr_code]
+        );
+
+        if (employee.rows.length === 0) {
+            return res.status(404).json({
+                message: "QR code not registered"
+            });
+        }
+
+        const employee_id = employee.rows[0].id;
+
+        const result = await pool.query(
+            `
+            UPDATE attendance
+            SET check_out = NOW()
+            WHERE employee_id = $1
+            AND DATE(check_in) = CURRENT_DATE
+            RETURNING *
+            `,
+            [employee_id]
+        );
+
+        res.json({
+            message: "QR check-out successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/gps/checkin", verifyToken, async (req, res) => {
+    try {
+
+        const employee_id = req.user.id;
+        const { location_lat, location_lng } = req.body;
+
+        if (!location_lat || !location_lng) {
+            return res.status(400).json({
+                message: "GPS location required"
+            });
+        }
+
+        const result = await pool.query(
+            `
+            INSERT INTO attendance
+            (employee_id, check_in, method, location_lat, location_lng)
+            VALUES ($1, NOW(), 'GPS', $2, $3)
+            RETURNING *
+            `,
+            [employee_id, location_lat, location_lng]
+        );
+
+        res.json({
+            message: "GPS check-in successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/gps/checkout", verifyToken, async (req, res) => {
+    try {
+
+        const employee_id = req.user.id;
+
+        const result = await pool.query(
+            `
+            UPDATE attendance
+            SET check_out = NOW()
+            WHERE employee_id = $1
+            AND DATE(check_in) = CURRENT_DATE
+            RETURNING *
+            `,
+            [employee_id]
+        );
+
+        res.json({
+            message: "GPS check-out successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/biometric/checkin", async (req, res) => {
+    try {
+
+        const { biometric_id } = req.body;
+
+        const employee = await pool.query(
+            `
+            SELECT id FROM employees
+            WHERE biometric_id = $1
+            `,
+            [biometric_id]
+        );
+
+        if (employee.rows.length === 0) {
+            return res.status(404).json({
+                message: "Biometric ID not registered"
+            });
+        }
+
+        const employee_id = employee.rows[0].id;
+
+        const result = await pool.query(
+            `
+            INSERT INTO attendance (employee_id, check_in, method)
+            VALUES ($1, NOW(), 'Biometric')
+            RETURNING *
+            `,
+            [employee_id]
+        );
+
+        res.json({
+            message: "Biometric check-in successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/biometric/checkout", async (req, res) => {
+    try {
+
+        const { biometric_id } = req.body;
+
+        const employee = await pool.query(
+            `
+            SELECT id FROM employees
+            WHERE biometric_id = $1
+            `,
+            [biometric_id]
+        );
+
+        if (employee.rows.length === 0) {
+            return res.status(404).json({
+                message: "Biometric ID not registered"
+            });
+        }
+
+        const employee_id = employee.rows[0].id;
+
+        const result = await pool.query(
+            `
+            UPDATE attendance
+            SET check_out = NOW()
+            WHERE employee_id = $1
+            AND DATE(check_in) = CURRENT_DATE
+            RETURNING *
+            `,
+            [employee_id]
+        );
+
+        res.json({
+            message: "Biometric check-out successful",
+            attendance: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 router.get("/monthly/:employeeId", verifyToken, async (req, res) => {
     try {
         const { employeeId } = req.params;
@@ -145,6 +484,140 @@ router.get("/monthly/:employeeId", verifyToken, async (req, res) => {
         res.status(500).json({
             message: "Server error"
         });
+    }
+});
+
+// ==============================
+// DAILY ATTENDANCE REPORT
+// ==============================
+router.get("/report/daily", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                e.id,
+                e.first_name,
+                e.last_name,
+                a.check_in,
+                a.check_out,
+                a.status,
+                a.overtime_hours
+            FROM attendance a
+            JOIN employees e ON a.employee_id = e.id
+            WHERE DATE(a.check_in) = CURRENT_DATE
+            ORDER BY e.first_name
+        `);
+
+        res.json({
+            date: new Date().toISOString().split("T")[0],
+            records: result.rows
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// ==============================
+// WEEKLY ATTENDANCE REPORT
+// ==============================
+router.get("/report/weekly", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                e.first_name,
+                e.last_name,
+                COUNT(a.id) AS total_days,
+                SUM(a.overtime_hours) AS total_overtime
+            FROM attendance a
+            JOIN employees e ON a.employee_id = e.id
+            WHERE DATE(a.check_in) >= CURRENT_DATE - INTERVAL '7 days'
+            GROUP BY e.first_name, e.last_name
+            ORDER BY e.first_name
+        `);
+
+        res.json({
+            period: "Last 7 days",
+            records: result.rows
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// ==============================
+// MONTHLY ATTENDANCE REPORT
+// ==============================
+router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                e.first_name,
+                e.last_name,
+                COUNT(a.id) AS days_present,
+                SUM(a.overtime_hours) AS total_overtime
+            FROM attendance a
+            JOIN employees e ON a.employee_id = e.id
+            WHERE DATE_TRUNC('month', a.check_in) = DATE_TRUNC('month', CURRENT_DATE)
+            GROUP BY e.first_name, e.last_name
+            ORDER BY e.first_name
+        `);
+
+        res.json({
+            month: new Date().toLocaleString("default", { month: "long" }),
+            records: result.rows
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.post("/mark-absent", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const employees = await pool.query(`
+            SELECT id FROM employees
+        `);
+
+        const today = new Date().toISOString().split("T")[0];
+
+        for (const emp of employees.rows) {
+            const attendance = await pool.query(
+                `
+                SELECT * FROM attendance
+                WHERE employee_id = $1 AND DATE(check_in) = $2
+                `,
+                [emp.id, today]
+            );
+
+            const leave = await pool.query(
+                `
+                SELECT * FROM leave_requests
+                WHERE employee_id = $1
+                AND status = 'approved'
+                AND $2 BETWEEN start_date AND end_date
+                `,
+                [emp.id, today]
+            );
+
+            if (attendance.rows.length === 0 && leave.rows.length === 0) {
+                await pool.query(
+                    `
+                    INSERT INTO attendance
+                    (employee_id, status)
+                    VALUES ($1, 'Absent')
+                    `,
+                    [emp.id]
+                );
+            }
+        }
+
+        res.json({
+            message: "Absence detection completed"
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
     }
 });
 

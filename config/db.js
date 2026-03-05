@@ -21,4 +21,9 @@ const pool = new Pool({
     port: 5432,
 });
 
+// Prevent process crash on unexpected idle client errors.
+pool.on("error", (err) => {
+    console.error("Unexpected PostgreSQL pool error:", err);
+});
+
 module.exports = pool;

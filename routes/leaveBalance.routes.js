@@ -14,9 +14,9 @@ router.get("/my-balance", verifyToken, async (req, res) => {
             `
             SELECT 
                 lt.name AS leave_type,
-                lb.total_leaves,
-                lb.used_leaves,
-                (lb.total_leaves - lb.used_leaves) AS remaining
+                lb.total_days,
+                lb.used_days,
+                lb.remaining_days
             FROM leave_balances lb
             JOIN leave_types lt ON lb.leave_type_id = lt.id
             WHERE lb.employee_id = $1

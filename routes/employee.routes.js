@@ -58,6 +58,71 @@ router.get("/", async (req, res) => {
 // ==============================
 // 🔹 GET MANAGER TEAM
 // ==============================
+// ==============================
+// EMPLOYEE DIRECTORY SEARCH
+// ==============================
+router.get("/directory/search", verifyToken, async (req, res) => {
+    try {
+
+        const { name, department, role, location } = req.query;
+
+        let query = `
+            SELECT 
+                id,
+                first_name,
+                last_name,
+                email,
+                department,
+                role,
+                location
+            FROM employees
+            WHERE 1=1
+        `;
+
+        const values = [];
+        let index = 1;
+
+        if (name) {
+            query += ` AND (first_name ILIKE $${index} OR last_name ILIKE $${index})`;
+            values.push(`%${name}%`);
+            index++;
+        }
+
+        if (department) {
+            query += ` AND department = $${index}`;
+            values.push(department);
+            index++;
+        }
+
+        if (role) {
+            query += ` AND role = $${index}`;
+            values.push(role);
+            index++;
+        }
+
+        if (location) {
+            query += ` AND location = $${index}`;
+            values.push(location);
+            index++;
+        }
+
+        query += ` ORDER BY first_name ASC`;
+
+        const result = await pool.query(query, values);
+
+        res.json({
+            count: result.rows.length,
+            employees: result.rows
+        });
+
+    } catch (error) {
+        console.error("Directory search error:", error);
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+});
+
 router.get("/my-team", verifyToken, async (req, res) => {
     try {
 
@@ -76,6 +141,38 @@ router.get("/my-team", verifyToken, async (req, res) => {
             team_members: result.rows
         });
 
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+// ==============================
+// UPDATE EMPLOYEE PROFILE
+// ==============================
+router.put("/profile/update", verifyToken, async (req, res) => {
+    try {
+        const employee_id = req.user.id;
+        const { dob, gender, phone, grade, manager_id } = req.body;
+
+        const result = await pool.query(
+            `
+            UPDATE employees
+            SET dob=$1,
+                gender=$2,
+                phone=$3,
+                grade=$4,
+                manager_id=$5
+            WHERE id=$6
+            RETURNING *
+            `,
+            [dob, gender, phone, grade, manager_id, employee_id]
+        );
+
+        res.json({
+            message: "Profile updated",
+            employee: result.rows[0]
+        });
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Server error" });
@@ -124,6 +221,87 @@ router.put("/assign-manager/:id", verifyToken, authorizeRoles("Admin"), async (r
 
         res.json({
             message: "Manager assigned successfully",
+            employee: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.put("/assign-rfid/:id", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+
+        const { id } = req.params;
+        const { rfid_card_id } = req.body;
+
+        const result = await pool.query(
+            `
+            UPDATE employees
+            SET rfid_card_id = $1
+            WHERE id = $2
+            RETURNING *
+            `,
+            [rfid_card_id, id]
+        );
+
+        res.json({
+            message: "RFID assigned",
+            employee: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.put("/assign-qr/:id", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+
+        const { id } = req.params;
+        const { qr_code } = req.body;
+
+        const result = await pool.query(
+            `
+            UPDATE employees
+            SET qr_code = $1
+            WHERE id = $2
+            RETURNING *
+            `,
+            [qr_code, id]
+        );
+
+        res.json({
+            message: "QR code assigned",
+            employee: result.rows[0]
+        });
+
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.put("/assign-biometric/:id", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+
+        const { id } = req.params;
+        const { biometric_id } = req.body;
+
+        const result = await pool.query(
+            `
+            UPDATE employees
+            SET biometric_id = $1
+            WHERE id = $2
+            RETURNING *
+            `,
+            [biometric_id, id]
+        );
+
+        res.json({
+            message: "Biometric ID assigned",
             employee: result.rows[0]
         });
 

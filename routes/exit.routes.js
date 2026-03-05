@@ -44,19 +44,57 @@ router.put("/approve/:id", verifyToken, authorizeRoles("Admin"), async (req, res
 
         const { id } = req.params;
 
+        // exit request get karo
+        const exitRequest = await pool.query(
+            `SELECT * FROM exit_requests WHERE id = $1`,
+            [id]
+        );
+
+        if (exitRequest.rows.length === 0) {
+            return res.status(404).json({
+                message: "Exit request not found"
+            });
+        }
+
+        const employee_id = exitRequest.rows[0].employee_id;
+
+        // exit approve
         const result = await pool.query(
             `
             UPDATE exit_requests
-            SET status = 'approved',
-                approved_by = $1
-            WHERE id = $2
+            SET status='approved',
+                approved_by=$1
+            WHERE id=$2
             RETURNING *
             `,
             [req.user.id, id]
         );
 
+        // employee ka role & department lo
+        const employee = await pool.query(
+            `
+            SELECT role, department
+            FROM employees
+            WHERE id=$1
+            `,
+            [employee_id]
+        );
+
+        const role = employee.rows[0].role;
+        const department = employee.rows[0].department;
+
+        // employment history me exit record add karo
+        await pool.query(
+            `
+            INSERT INTO employment_history
+            (employee_id, role, department, change_type, effective_date)
+            VALUES ($1,$2,$3,'Exit',CURRENT_DATE)
+            `,
+            [employee_id, role, department]
+        );
+
         res.json({
-            message: "Exit approved successfully",
+            message: "Exit approved and recorded in employment history",
             exit_request: result.rows[0]
         });
 
