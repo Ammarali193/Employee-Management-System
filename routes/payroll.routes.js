@@ -246,7 +246,7 @@ router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req,r
         s.basic_salary,
         s.allowances,
         s.deductions,
-        s.net_salary
+        (s.basic_salary + s.allowances - s.deductions) AS net_salary
         FROM salaries s
         JOIN employees e ON s.employee_id = e.id
         WHERE DATE_TRUNC('month', s.created_at) =
@@ -256,6 +256,89 @@ router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req,r
 
         res.json({
             payroll_report:result.rows
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.get("/report/summary", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT 
+        COUNT(employee_id) AS total_employees,
+        COALESCE(SUM(basic_salary + allowances - deductions), 0) AS total_payroll,
+        COALESCE(SUM(deductions), 0) AS total_deductions
+        FROM salaries
+        `);
+
+        res.json({
+            payroll_summary:result.rows[0]
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.post("/tax-rule", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const {name, percentage} = req.body;
+
+        const result = await pool.query(`
+        INSERT INTO tax_rules (name, percentage)
+        VALUES ($1,$2)
+        RETURNING *
+        `,[name,percentage]);
+
+        res.json({
+            message:"Tax rule added",
+            rule:result.rows[0]
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.post("/calculate", verifyToken, async (req,res)=>{
+    try{
+
+        const {salary, tax_percentage} = req.body;
+
+        const tax = (salary * tax_percentage) / 100;
+
+        const net_salary = salary - tax;
+
+        res.json({
+            salary,
+            tax,
+            net_salary
+        });
+
+    }catch(error){
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.get("/currency", verifyToken, async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT employee_id,
+        (basic_salary + allowances - deductions) AS net_salary,
+        currency
+        FROM salaries
+        `);
+
+        res.json({
+            salaries:result.rows
         });
 
     }catch(error){

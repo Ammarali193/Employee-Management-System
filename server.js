@@ -566,6 +566,8 @@ const createSalaryTable = async () => {
             id SERIAL PRIMARY KEY,
             employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
             basic_salary NUMERIC(10,2) NOT NULL,
+            allowances NUMERIC(10,2) DEFAULT 0,
+            deductions NUMERIC(10,2) DEFAULT 0,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `;
@@ -575,6 +577,63 @@ const createSalaryTable = async () => {
         console.log("✅ Salary table ready");
     } catch (err) {
         console.error("❌ Error creating salary table:", err);
+    }
+};
+
+const updateSalaryColumns = async () => {
+    try {
+        await pool.query(`
+            ALTER TABLE salaries
+            ADD COLUMN IF NOT EXISTS allowances NUMERIC(10,2) DEFAULT 0;
+        `);
+
+        await pool.query(`
+            ALTER TABLE salaries
+            ADD COLUMN IF NOT EXISTS deductions NUMERIC(10,2) DEFAULT 0;
+        `);
+
+        console.log("✅ Salary allowances/deductions columns ready");
+    } catch (err) {
+        console.error("Salary columns update error:", err);
+    }
+};
+
+const addCurrencyColumn = async () => {
+    try{
+
+        await pool.query(`
+        ALTER TABLE salaries
+        ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'PKR'
+        `);
+
+        console.log("✅ Currency column added");
+
+    }catch(err){
+        console.error(err);
+    }
+};
+
+// ==============================
+// CREATE TAX RULES TABLE
+// ==============================
+const createTaxRulesTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS tax_rules (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100),
+            percentage DECIMAL,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Tax rules table ready");
+
+    } catch (err) {
+        console.error("Tax table error:", err);
     }
 };
 
@@ -622,6 +681,112 @@ const createPerformanceTable = async () => {
         console.log("✅ Performance table ready");
     } catch (err) {
         console.error("❌ Error creating performance table:", err);
+    }
+};
+
+// ==============================
+// CREATE KPI TABLE
+// ==============================
+const createKpiTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS kpis (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            goal VARCHAR(200),
+            target_value INTEGER,
+            achieved_value INTEGER DEFAULT 0,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ KPI table ready");
+
+    } catch (err) {
+        console.error("KPI table error:", err);
+    }
+};
+
+// ==============================
+// CREATE FEEDBACK TABLE
+// ==============================
+const createFeedbackTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS feedback (
+            id SERIAL PRIMARY KEY,
+            from_employee_id INTEGER REFERENCES employees(id),
+            to_employee_id INTEGER REFERENCES employees(id),
+            rating INTEGER,
+            comment TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Feedback table ready");
+
+    } catch (err) {
+        console.error("Feedback table error:", err);
+    }
+};
+
+// ==============================
+// CREATE APPRAISAL CYCLE TABLE
+// ==============================
+const createAppraisalCycleTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS appraisal_cycles (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(100),
+            year INTEGER,
+            start_date DATE,
+            end_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Appraisal cycle table ready");
+
+    } catch (err) {
+        console.error("Appraisal cycle table error:", err);
+    }
+};
+
+// ==============================
+// CREATE APPRAISAL RESULTS TABLE
+// ==============================
+const createAppraisalResultTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS appraisal_results (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id),
+            cycle_id INTEGER REFERENCES appraisal_cycles(id),
+            rating INTEGER,
+            promotion BOOLEAN DEFAULT false,
+            salary_increment INTEGER DEFAULT 0,
+            comments TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Appraisal results table ready");
+
+    } catch (err) {
+        console.error("Appraisal results error:", err);
     }
 };
 
@@ -902,8 +1067,15 @@ const initializeTables = async () => {
     await createAssetAssignmentsTable();
     await createAssetMaintenanceTable();
     await createSalaryTable();
+    await updateSalaryColumns();
+    await addCurrencyColumn();
+    await createTaxRulesTable();
     await createAuditLogTable();
     await createPerformanceTable();
+    await createKpiTable();
+    await createFeedbackTable();
+    await createAppraisalCycleTable();
+    await createAppraisalResultTable();
     await createLoansTable();
     await createLeaveBalanceTable();
     await createLeavePolicyTable();
