@@ -791,6 +791,57 @@ const createAppraisalResultTable = async () => {
 };
 
 // ==============================
+// CREATE TRAINING COURSES TABLE
+// ==============================
+const createTrainingTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS trainings (
+            id SERIAL PRIMARY KEY,
+            course_name VARCHAR(200),
+            description TEXT,
+            duration_days INTEGER,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Training courses table ready");
+
+    } catch (err) {
+        console.error("Training table error:", err);
+    }
+};
+
+// ==============================
+// CREATE EMPLOYEE TRAINING RECORDS
+// ==============================
+const createEmployeeTrainingTable = async () => {
+    try {
+
+        const query = `
+        CREATE TABLE IF NOT EXISTS employee_trainings (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id) ON DELETE CASCADE,
+            training_id INTEGER REFERENCES trainings(id) ON DELETE CASCADE,
+            status VARCHAR(50) DEFAULT 'Assigned',
+            completion_date DATE,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Employee training table ready");
+
+    } catch (err) {
+        console.error("Employee training table error:", err);
+    }
+};
+
+// ==============================
 // 🔹 CREATE LOANS TABLE
 // ==============================
 const createLoansTable = async () => {
@@ -860,6 +911,51 @@ const createLeavePolicyTable = async () => {
         console.log("✅ Leave policy table ready");
     } catch (err) {
         console.error("Leave policy table error:", err);
+    }
+};
+
+// ==============================
+// CREATE POLICIES TABLE
+// ==============================
+const createPoliciesTable = async () => {
+    try {
+        const query = `
+        CREATE TABLE IF NOT EXISTS policies (
+            id SERIAL PRIMARY KEY,
+            title VARCHAR(200),
+            category VARCHAR(100),
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+        console.log("✅ Policies table ready");
+    } catch (err) {
+        console.error("Policies table error:", err);
+    }
+};
+
+// ==============================
+// CREATE ONBOARDING TABLE
+// ==============================
+const createOnboardingTable = async () => {
+    try {
+        const query = `
+        CREATE TABLE IF NOT EXISTS onboarding (
+            id SERIAL PRIMARY KEY,
+            employee_id INTEGER REFERENCES employees(id),
+            documents_submitted BOOLEAN DEFAULT false,
+            training_assigned BOOLEAN DEFAULT false,
+            status VARCHAR(50) DEFAULT 'Pending',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+        console.log("✅ Onboarding table ready");
+    } catch (err) {
+        console.error("Onboarding table error:", err);
     }
 };
 
@@ -1076,9 +1172,13 @@ const initializeTables = async () => {
     await createFeedbackTable();
     await createAppraisalCycleTable();
     await createAppraisalResultTable();
+    await createTrainingTable();
+    await createEmployeeTrainingTable();
     await createLoansTable();
     await createLeaveBalanceTable();
     await createLeavePolicyTable();
+    await createPoliciesTable();
+    await createOnboardingTable();
     await createHolidayTable();
     await createJobPostsTable();
     await createCandidatesTable();
@@ -1122,6 +1222,8 @@ const customFieldsRoutes = require("./routes/customfields.routes");
 const shiftRoutes = require("./routes/shift.routes");
 const deviceRoutes = require("./routes/device.routes");
 const holidayRoutes = require("./routes/holiday.routes");
+const complianceRoutes = require("./routes/compliance.routes");
+const lifecycleRoutes = require("./routes/lifecycle.routes");
 
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
@@ -1146,6 +1248,8 @@ app.use("/api/custom-fields", customFieldsRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/device", deviceRoutes);
 app.use("/api/holidays", holidayRoutes);
+app.use("/api/compliance", complianceRoutes);
+app.use("/api/lifecycle", lifecycleRoutes);
 
 // ==============================
 // ROOT ROUTE

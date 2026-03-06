@@ -6,7 +6,7 @@ const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware"
 // ==============================
 // 🔹 ASSIGN BASIC SALARY (Admin Only)
 // ==============================
-router.post("/assign", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.post("/assign", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const { employee_id, basic_salary } = req.body;
 
@@ -41,7 +41,7 @@ router.post("/assign", verifyToken, authorizeRoles("Admin"), async (req, res) =>
 // ==============================
 // 🔹 CALCULATE MONTHLY SALARY (With Leave Logic)
 // ==============================
-router.get("/monthly/:employeeId", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/monthly/:employeeId", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const { employeeId } = req.params;
         const { month, year } = req.query;
@@ -145,7 +145,7 @@ router.get("/monthly/:employeeId", verifyToken, authorizeRoles("Admin"), async (
 // ==============================
 // 🔹 GENERATE SALARY SLIP
 // ==============================
-router.get("/slip/:employeeId", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/slip/:employeeId", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const { employeeId } = req.params;
         const { month, year } = req.query;
@@ -236,7 +236,7 @@ router.get("/slip/:employeeId", verifyToken, authorizeRoles("Admin"), async (req
     }
 });
 
-router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+router.get("/report/monthly", verifyToken, authorizeRoles("Admin", "HR"), async (req,res)=>{
     try{
 
         const result = await pool.query(`
@@ -264,7 +264,7 @@ router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req,r
     }
 });
 
-router.get("/report/summary", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+router.get("/report/summary", verifyToken, authorizeRoles("Admin", "HR"), async (req,res)=>{
     try{
 
         const result = await pool.query(`
@@ -285,7 +285,7 @@ router.get("/report/summary", verifyToken, authorizeRoles("Admin"), async (req,r
     }
 });
 
-router.post("/tax-rule", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+router.post("/tax-rule", verifyToken, authorizeRoles("Admin", "HR"), async (req,res)=>{
     try{
 
         const {name, percentage} = req.body;
@@ -327,7 +327,7 @@ router.post("/calculate", verifyToken, async (req,res)=>{
     }
 });
 
-router.get("/currency", verifyToken, async (req,res)=>{
+router.get("/currency", verifyToken, authorizeRoles("Admin", "HR"), async (req,res)=>{
     try{
 
         const result = await pool.query(`

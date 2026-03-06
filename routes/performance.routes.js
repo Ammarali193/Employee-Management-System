@@ -271,6 +271,139 @@ router.post("/appraisal-result", verifyToken, authorizeRoles("Admin"), async (re
     }
 });
 
+router.post("/training", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const {course_name, description, duration_days} = req.body;
+
+        const result = await pool.query(`
+        INSERT INTO trainings (course_name, description, duration_days)
+        VALUES ($1,$2,$3)
+        RETURNING *
+        `,[course_name,description,duration_days]);
+
+        res.json({
+            message:"Training course created",
+            training:result.rows[0]
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.post("/training/assign", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const {employee_id, training_id} = req.body;
+
+        const result = await pool.query(`
+        INSERT INTO employee_trainings (employee_id, training_id)
+        VALUES ($1,$2)
+        RETURNING *
+        `,[employee_id,training_id]);
+
+        res.json({
+            message:"Training assigned",
+            record:result.rows[0]
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.put("/training/complete/:id", verifyToken, async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        UPDATE employee_trainings
+        SET status='Completed',
+            completion_date=CURRENT_DATE
+        WHERE id=$1
+        RETURNING *
+        `,[req.params.id]);
+
+        res.json({
+            message:"Training completed",
+            record:result.rows[0]
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.get("/report/top-performers", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT 
+        e.first_name,
+        e.last_name,
+        ar.rating
+        FROM appraisal_results ar
+        JOIN employees e ON ar.employee_id = e.id
+        ORDER BY ar.rating DESC
+        LIMIT 10
+        `);
+
+        res.json({
+            top_performers: result.rows
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.get("/report/kpi-progress", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT 
+        e.first_name,
+        e.last_name,
+        k.goal,
+        k.target_value,
+        k.achieved_value
+        FROM kpis k
+        JOIN employees e ON k.employee_id = e.id
+        ORDER BY k.created_at DESC
+        `);
+
+        res.json({
+            kpi_progress: result.rows
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+router.get("/policies", verifyToken, async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT * FROM policies
+        ORDER BY created_at DESC
+        `);
+
+        res.json({
+            policies:result.rows
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
 // GET EMPLOYEE PERFORMANCE HISTORY
 router.get("/:employeeId", verifyToken, async (req, res) => {
     try {

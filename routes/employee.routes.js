@@ -180,23 +180,29 @@ router.put("/profile/update", verifyToken, async (req, res) => {
 });
 
 // Get single employee by id
-router.get("/:id", async (req, res) => {
+router.get("/:id", verifyToken, async (req, res) => {
     try {
-        const { id } = req.params;
-
-        const result = await pool.query(
-            "SELECT id, first_name, last_name, email, department, role, status FROM employees WHERE id = $1",
-            [id]
-        );
+        const result = await pool.query(`
+        SELECT id, first_name, last_name, email, department, role
+        FROM employees
+        WHERE id=$1
+        `,[req.params.id]);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: "Employee not found" });
         }
 
-        res.status(200).json(result.rows[0]);
+        const employee = result.rows[0];
+
+        // Mask email if not admin
+        if (req.user.role !== "Admin") {
+            employee.email = employee.email.replace(/(.{3}).+(@.+)/, "$1***$2");
+        }
+
+        res.json(employee);
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Server Error" });
+        res.status(500).json({message:"Server error"});
     }
 });
 
