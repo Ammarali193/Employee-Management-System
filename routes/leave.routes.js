@@ -179,4 +179,45 @@ router.get("/balance/:employee_id", verifyToken, async (req, res) => {
     }
 });
 
+router.post("/policy", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const { leave_type_id, carry_forward_limit, encashment_allowed } = req.body;
+
+        const result = await pool.query(
+            `
+            INSERT INTO leave_policies
+            (leave_type_id, carry_forward_limit, encashment_allowed)
+            VALUES ($1,$2,$3)
+            RETURNING *
+            `,
+            [leave_type_id, carry_forward_limit, encashment_allowed]
+        );
+
+        res.json({
+            message: "Leave policy created",
+            policy: result.rows[0]
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.get("/policy", verifyToken, async (req, res) => {
+    try {
+        const result = await pool.query(`
+        SELECT lp.*, lt.name AS leave_type
+        FROM leave_policies lp
+        JOIN leave_types lt ON lp.leave_type_id = lt.id
+        `);
+
+        res.json({
+            policies: result.rows
+        });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 module.exports = router;

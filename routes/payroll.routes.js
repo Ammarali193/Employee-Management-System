@@ -236,4 +236,32 @@ router.get("/slip/:employeeId", verifyToken, authorizeRoles("Admin"), async (req
     }
 });
 
+router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT 
+        e.first_name,
+        e.last_name,
+        s.basic_salary,
+        s.allowances,
+        s.deductions,
+        s.net_salary
+        FROM salaries s
+        JOIN employees e ON s.employee_id = e.id
+        WHERE DATE_TRUNC('month', s.created_at) =
+              DATE_TRUNC('month', CURRENT_DATE)
+        ORDER BY e.first_name
+        `);
+
+        res.json({
+            payroll_report:result.rows
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
 module.exports = router;

@@ -154,4 +154,80 @@ router.post("/return", verifyToken, authorizeRoles("Admin"), async (req, res) =>
     }
 });
 
+// ADD MAINTENANCE RECORD
+router.post("/maintenance", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const {asset_id, service_date, warranty_expiry, notes} = req.body;
+
+        const result = await pool.query(`
+        INSERT INTO asset_maintenance
+        (asset_id, service_date, warranty_expiry, notes)
+        VALUES ($1,$2,$3,$4)
+        RETURNING *
+        `,[asset_id,service_date,warranty_expiry,notes]);
+
+        res.json({
+            message:"Maintenance record added",
+            maintenance:result.rows[0]
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+// ASSET USAGE REPORT
+router.get("/report/usage", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT
+        a.name,
+        a.category AS asset_type,
+        a.status,
+        e.first_name,
+        e.last_name
+        FROM asset_assignments aa
+        JOIN assets a ON aa.asset_id = a.id
+        JOIN employees e ON aa.employee_id = e.id
+        `);
+
+        res.json({
+            asset_usage:result.rows
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
+// PENDING ASSET RETURNS REPORT
+router.get("/report/pending", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT
+        a.name,
+        e.first_name,
+        e.last_name,
+        aa.assigned_date
+        FROM asset_assignments aa
+        JOIN assets a ON aa.asset_id = a.id
+        JOIN employees e ON aa.employee_id = e.id
+        WHERE aa.return_date IS NULL
+        `);
+
+        res.json({
+            pending_returns:result.rows
+        });
+
+    }catch(error){
+        console.error(error);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
 module.exports = router;

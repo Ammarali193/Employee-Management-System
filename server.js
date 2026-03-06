@@ -519,6 +519,45 @@ const createAssetAssignmentsTable = async () => {
 };
 
 // ==============================
+// CREATE ASSET MAINTENANCE TABLE
+// ==============================
+const createAssetMaintenanceTable = async () => {
+    try {
+        const query = `
+        CREATE TABLE IF NOT EXISTS asset_maintenance (
+            id SERIAL PRIMARY KEY,
+            asset_id INTEGER REFERENCES assets(id) ON DELETE CASCADE,
+            service_date DATE,
+            warranty_expiry DATE,
+            notes TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Asset maintenance table ready");
+    } catch (err) {
+        console.error("Asset maintenance table error:", err);
+    }
+};
+
+const updateAssetStatus = async () => {
+    try{
+
+        await pool.query(`
+        ALTER TABLE assets
+        ADD COLUMN IF NOT EXISTS status VARCHAR(20) DEFAULT 'Available'
+        `);
+
+        console.log("✅ Asset status column ready");
+
+    }catch(err){
+        console.error(err);
+    }
+};
+
+// ==============================
 // 🔹 CREATE SALARY TABLE
 // ==============================
 const createSalaryTable = async () => {
@@ -634,6 +673,51 @@ const createLeaveBalanceTable = async () => {
 
     } catch (err) {
         console.error("Leave balance table error:", err);
+    }
+};
+
+// ==============================
+// CREATE LEAVE POLICY TABLE
+// ==============================
+const createLeavePolicyTable = async () => {
+    try {
+        const query = `
+        CREATE TABLE IF NOT EXISTS leave_policies (
+            id SERIAL PRIMARY KEY,
+            leave_type_id INTEGER REFERENCES leave_types(id) ON DELETE CASCADE,
+            carry_forward_limit INTEGER DEFAULT 0,
+            encashment_allowed BOOLEAN DEFAULT false,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+        console.log("✅ Leave policy table ready");
+    } catch (err) {
+        console.error("Leave policy table error:", err);
+    }
+};
+
+// ==============================
+// CREATE HOLIDAYS TABLE
+// ==============================
+const createHolidayTable = async () => {
+    try {
+        const query = `
+        CREATE TABLE IF NOT EXISTS holidays (
+            id SERIAL PRIMARY KEY,
+            name VARCHAR(150) NOT NULL,
+            holiday_date DATE NOT NULL,
+            description TEXT,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        );
+        `;
+
+        await pool.query(query);
+
+        console.log("✅ Holidays table ready");
+    } catch (err) {
+        console.error("Holiday table error:", err);
     }
 };
 
@@ -814,12 +898,16 @@ const initializeTables = async () => {
     await createLeaveRequestsTable();
     await insertDefaultLeaveTypes();
     await createAssetsTable();
+    await updateAssetStatus();
     await createAssetAssignmentsTable();
+    await createAssetMaintenanceTable();
     await createSalaryTable();
     await createAuditLogTable();
     await createPerformanceTable();
     await createLoansTable();
     await createLeaveBalanceTable();
+    await createLeavePolicyTable();
+    await createHolidayTable();
     await createJobPostsTable();
     await createCandidatesTable();
     await createInterviewsTable();
@@ -861,6 +949,7 @@ const documentRoutes = require("./routes/documents.routes");
 const customFieldsRoutes = require("./routes/customfields.routes");
 const shiftRoutes = require("./routes/shift.routes");
 const deviceRoutes = require("./routes/device.routes");
+const holidayRoutes = require("./routes/holiday.routes");
 
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
@@ -884,6 +973,7 @@ app.use("/api/documents", documentRoutes);
 app.use("/api/custom-fields", customFieldsRoutes);
 app.use("/api/shifts", shiftRoutes);
 app.use("/api/device", deviceRoutes);
+app.use("/api/holidays", holidayRoutes);
 
 // ==============================
 // ROOT ROUTE
