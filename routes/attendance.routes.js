@@ -10,42 +10,18 @@ router.post("/checkin", verifyToken, async (req, res) => {
     try {
         const employeeId = req.user.id;
 
-        // Check if already checked in today
-        const existing = await pool.query(
+        await pool.query(
             `
-            SELECT * FROM attendance
-            WHERE employee_id = $1
-            AND DATE(check_in) = CURRENT_DATE
+            INSERT INTO attendance (employee_id, check_in)
+            VALUES ($1, NOW())
             `,
             [employeeId]
         );
 
-        if (existing.rows.length > 0) {
-            return res.status(400).json({
-                message: "You have already checked in today"
-            });
-        }
-
-        // Insert check-in
-        const result = await pool.query(
-            `
-            INSERT INTO attendance (employee_id)
-            VALUES ($1)
-            RETURNING id, check_in
-            `,
-            [employeeId]
-        );
-
-        res.status(201).json({
-            message: "Check-in successful",
-            attendance: result.rows[0]
-        });
-
+        res.json({ message: "Checked in successfully" });
     } catch (error) {
         console.error("Check-in error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        res.status(500).json({ message: "Server error" });
     }
 });
 
@@ -54,78 +30,58 @@ router.post("/checkin", verifyToken, async (req, res) => {
 // ==============================
 router.post("/checkout", verifyToken, async (req, res) => {
     try {
-        const employee_id = req.user.id;
+        const employeeId = req.user.id;
 
-        // employee shift fetch
-        const shift = await pool.query(
+        await pool.query(
             `
-            SELECT s.end_time
-            FROM employee_shifts es
-            JOIN shifts s ON es.shift_id = s.id
-            WHERE es.employee_id = $1
-            ORDER BY es.assigned_date DESC, es.id DESC
-            LIMIT 1
+            UPDATE attendance
+            SET check_out = NOW()
+            WHERE employee_id = $1 AND check_out IS NULL
             `,
-            [employee_id]
+            [employeeId]
         );
 
-        if (shift.rows.length === 0) {
-            return res.status(400).json({ message: "Shift not assigned" });
-        }
+        res.json({ message: "Checked out successfully" });
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 
-        const shift_end = shift.rows[0].end_time;
-
-        // attendance record
-        const attendance = await pool.query(
-            `
-            SELECT * FROM attendance
-            WHERE employee_id = $1 AND DATE(check_in) = CURRENT_DATE
-            `,
-            [employee_id]
-        );
-
-        if (attendance.rows.length === 0) {
-            return res.status(404).json({ message: "Attendance record not found" });
-        }
-
-        const check_in_record = attendance.rows[0];
-
-        if (check_in_record.check_out) {
-            return res.status(400).json({
-                message: "You have already checked out today"
-            });
-        }
-
-        const now = new Date();
-
-        // overtime calculation
-        const shiftEndTime = new Date();
-        const [h, m, s] = String(shift_end).split(":");
-        shiftEndTime.setHours(Number(h), Number(m), Number(s), 0);
-
-        let overtime = 0;
-
-        if (now > shiftEndTime) {
-            overtime = (now - shiftEndTime) / (1000 * 60 * 60); // hours
-        }
+router.get("/my", verifyToken, async (req, res) => {
+    try {
+        const employeeId = req.user.id;
 
         const result = await pool.query(
             `
-            UPDATE attendance
-            SET check_out = NOW(),
-                work_hours = EXTRACT(EPOCH FROM (NOW() - check_in)) / 3600,
-                overtime_hours = $1
-            WHERE id = $2
-            RETURNING *
+            SELECT * FROM attendance
+            WHERE employee_id = $1
+            ORDER BY check_in DESC
             `,
-            [overtime, check_in_record.id]
+            [employeeId]
         );
 
-        res.json({
-            message: "Check-out successful",
-            attendance: result.rows[0]
-        });
+        res.json(result.rows);
+    } catch (error) {
+        console.error(error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
 
+router.get("/history", verifyToken, async (req, res) => {
+    try {
+        const employeeId = req.user.id;
+
+        const result = await pool.query(
+            `
+            SELECT * FROM attendance
+            WHERE employee_id = $1
+            ORDER BY created_at DESC
+            `,
+            [employeeId]
+        );
+
+        res.json(result.rows);
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Server error" });

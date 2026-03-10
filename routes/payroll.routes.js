@@ -3,6 +3,30 @@ const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
 
+router.get("/", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                e.first_name,
+                s.basic_salary AS basic,
+                COALESCE(s.allowances, 0) AS allowances,
+                COALESCE(s.deductions, 0) AS deductions,
+                (s.basic_salary + COALESCE(s.allowances, 0) - COALESCE(s.deductions, 0)) AS net_salary
+            FROM (
+                SELECT DISTINCT ON (employee_id) *
+                FROM salaries
+                ORDER BY employee_id, created_at DESC
+            ) s
+            JOIN employees e ON e.id = s.employee_id
+        `);
+
+        res.json(result.rows);
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // ==============================
 // 🔹 ASSIGN BASIC SALARY (Admin Only)
 // ==============================

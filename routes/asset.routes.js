@@ -136,7 +136,8 @@ router.post("/return", verifyToken, authorizeRoles("Admin"), async (req, res) =>
         await pool.query(
             `
             UPDATE assets
-            SET status = 'available'
+            SET assigned_to = NULL,
+                status = 'available'
             WHERE id = $1
             `,
             [asset_id]

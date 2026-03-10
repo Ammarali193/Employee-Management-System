@@ -1,10 +1,12 @@
 const express = require("express");
 require("dotenv").config();
 const bcrypt = require("bcryptjs");
+const cors = require("cors");
 
 const pool = require("./config/db");
 
 const app = express();
+app.use(cors());
 app.use(express.json());
 
 const { autoAudit } = require("./middlewares/audit.middleware");
@@ -482,6 +484,7 @@ const createAssetsTable = async () => {
             name VARCHAR(150) NOT NULL,
             category VARCHAR(100),
             serial_number VARCHAR(150) UNIQUE,
+            assigned_to INTEGER REFERENCES employees(id) ON DELETE SET NULL,
             status VARCHAR(20) DEFAULT 'available',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
@@ -554,6 +557,21 @@ const updateAssetStatus = async () => {
 
     }catch(err){
         console.error(err);
+    }
+};
+
+const addAssetAssignedToColumn = async () => {
+    try {
+
+        await pool.query(`
+        ALTER TABLE assets
+        ADD COLUMN IF NOT EXISTS assigned_to INTEGER REFERENCES employees(id) ON DELETE SET NULL
+        `);
+
+        console.log("Asset assigned_to column ready");
+
+    } catch (err) {
+        console.error("Asset assigned_to update error:", err);
     }
 };
 
@@ -1160,6 +1178,7 @@ const initializeTables = async () => {
     await insertDefaultLeaveTypes();
     await createAssetsTable();
     await updateAssetStatus();
+    await addAssetAssignedToColumn();
     await createAssetAssignmentsTable();
     await createAssetMaintenanceTable();
     await createSalaryTable();
@@ -1203,7 +1222,7 @@ const employeeRoutes = require("./routes/employee.routes");
 const authRoutes = require("./routes/auth.routes");
 const attendanceRoutes = require("./routes/attendance.routes");
 const leaveRoutes = require("./routes/leave.routes");
-const assetRoutes = require("./routes/asset.routes");
+const assetRoutes = require("./routes/assets.routes");
 const payrollRoutes = require("./routes/payroll.routes");
 const dashboardRoutes = require("./routes/dashboard.routes");
 const employeeDashboardRoutes = require("./routes/employeeDashboard.routes");

@@ -9,34 +9,22 @@ const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware"
 router.post("/apply", verifyToken, async (req, res) => {
     try {
         const employeeId = req.user.id;
-        const { leave_type_id, start_date, end_date, reason } = req.body;
-
-        if (!leave_type_id || !start_date || !end_date) {
-            return res.status(400).json({
-                message: "Leave type, start date and end date are required"
-            });
-        }
+        const { leave_type, start_date, end_date, reason } = req.body;
 
         const result = await pool.query(
             `
-            INSERT INTO leave_requests 
-            (employee_id, leave_type_id, start_date, end_date, reason)
-            VALUES ($1, $2, $3, $4, $5)
+            INSERT INTO leave_requests
+            (employee_id, leave_type, start_date, end_date, reason, status)
+            VALUES ($1, $2, $3, $4, $5, 'Pending')
             RETURNING *
             `,
-            [employeeId, leave_type_id, start_date, end_date, reason]
+            [employeeId, leave_type, start_date, end_date, reason]
         );
 
-        res.status(201).json({
-            message: "Leave applied successfully",
-            leave: result.rows[0]
-        });
-
+        res.json(result.rows[0]);
     } catch (error) {
         console.error("Leave apply error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        res.status(500).json({ message: "Server error" });
     }
 });
 
@@ -47,16 +35,15 @@ router.get("/all", verifyToken, async (req, res) => {
     try {
 
         const result = await pool.query(`
-            SELECT 
-                lr.id,
-                lr.employee_id,
-                lt.name AS leave_type,
-                lr.start_date,
-                lr.end_date,
-                lr.status
-            FROM leave_requests lr
-            JOIN leave_types lt 
-            ON lr.leave_type_id = lt.id
+            SELECT
+                id,
+                employee_id,
+                leave_type,
+                start_date,
+                end_date,
+                status
+            FROM leave_requests
+            ORDER BY id DESC
         `);
 
         res.json({
@@ -68,6 +55,53 @@ router.get("/all", verifyToken, async (req, res) => {
         res.status(500).json({
             message: "Server error"
         });
+    }
+});
+
+router.get("/my", verifyToken, async (req, res) => {
+    try {
+        const employeeId = req.user.id;
+
+        const result = await pool.query(
+            `
+            SELECT
+                lr.*,
+                lt.name AS leave_type
+            FROM leave_requests lr
+            LEFT JOIN leave_types lt
+            ON lr.leave_type_id = lt.id
+            WHERE lr.employee_id = $1
+            ORDER BY lr.applied_at DESC
+            `,
+            [employeeId]
+        );
+
+        res.json({ leaves: result.rows });
+    } catch (error) {
+        console.error("My leave fetch error:", error);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.get("/pending", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                lr.*,
+                e.first_name,
+                e.last_name,
+                lt.name AS leave_type
+            FROM leave_requests lr
+            JOIN employees e ON lr.employee_id = e.id
+            LEFT JOIN leave_types lt ON lr.leave_type_id = lt.id
+            WHERE LOWER(lr.status) = 'pending'
+            ORDER BY lr.applied_at DESC
+        `);
+
+        res.json({ leaves: result.rows });
+    } catch (error) {
+        console.error("Pending leave fetch error:", error);
+        res.status(500).json({ message: "Server error" });
     }
 });
 

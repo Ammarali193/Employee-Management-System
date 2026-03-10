@@ -3,14 +3,49 @@ const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
 
+// GET all performance records
+router.get("/", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                p.id,
+                e.first_name,
+                e.last_name,
+                p.rating AS score,
+                p.comments AS feedback
+            FROM performance_reviews p
+            JOIN employees e ON p.employee_id = e.id
+            ORDER BY p.id DESC
+        `);
+
+        res.json({
+            records: result.rows
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
+    }
+});
+
 // ADD PERFORMANCE REVIEW (Admin Only)
 router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
     try {
-        const { employee_id, rating, review_period, comments } = req.body;
+        const {
+            employee_id,
+            score,
+            feedback,
+            rating,
+            review_period,
+            comments
+        } = req.body;
 
-        if (!employee_id || !rating || !review_period) {
+        const finalScore = score ?? rating;
+        const finalFeedback = feedback ?? comments;
+        const finalReviewPeriod = review_period ?? "General";
+
+        if (!employee_id || finalScore == null) {
             return res.status(400).json({
-                message: "Employee ID, rating and review period are required"
+                message: "Employee ID and score are required"
             });
         }
 
@@ -21,11 +56,18 @@ router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
             VALUES ($1, $2, $3, $4, $5)
             RETURNING *
             `,
-            [employee_id, req.user.id, rating, review_period, comments]
+            [employee_id, req.user.id, finalScore, finalReviewPeriod, finalFeedback]
         );
 
+        const record = {
+            ...result.rows[0],
+            score: result.rows[0].rating,
+            feedback: result.rows[0].comments
+        };
+
         res.status(201).json({
-            message: "Performance review added successfully",
+            message: "Performance added",
+            record,
             review: result.rows[0]
         });
 
@@ -34,6 +76,31 @@ router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
         res.status(500).json({
             message: "Server error"
         });
+    }
+});
+
+// TOP performers
+router.get("/top", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const result = await pool.query(`
+            SELECT
+                id,
+                employee_id,
+                rating AS score,
+                comments AS feedback,
+                review_period,
+                created_at
+            FROM performance_reviews
+            ORDER BY rating DESC
+            LIMIT 5
+        `);
+
+        res.json({
+            top: result.rows
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).json({ message: "Server error" });
     }
 });
 
@@ -378,24 +445,6 @@ router.get("/report/kpi-progress", verifyToken, authorizeRoles("Admin"), async (
 
         res.json({
             kpi_progress: result.rows
-        });
-
-    }catch(error){
-        console.error(error);
-        res.status(500).json({message:"Server error"});
-    }
-});
-
-router.get("/policies", verifyToken, async (req,res)=>{
-    try{
-
-        const result = await pool.query(`
-        SELECT * FROM policies
-        ORDER BY created_at DESC
-        `);
-
-        res.json({
-            policies:result.rows
         });
 
     }catch(error){
