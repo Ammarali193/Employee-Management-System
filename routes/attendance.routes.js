@@ -48,9 +48,15 @@ router.post("/checkout", verifyToken, async (req, res) => {
     }
 });
 
-router.get("/my", verifyToken, async (req, res) => {
+router.get("/my", async (req, res) => {
     try {
-        const employeeId = req.user.id;
+        const employeeId = req.user?.id || req.query.employee_id;
+
+        if (!employeeId) {
+            return res.status(400).json({
+                message: "employee_id is required when auth is disabled"
+            });
+        }
 
         const result = await pool.query(
             `

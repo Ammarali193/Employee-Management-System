@@ -3,6 +3,24 @@ const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
 
+router.get("/report", async (req,res)=>{
+    try{
+
+        const result = await pool.query(`
+        SELECT *
+        FROM policies
+        `);
+
+        res.json({
+            report: result.rows
+        });
+
+    }catch(err){
+        console.error(err);
+        res.status(500).json({message:"Server error"});
+    }
+});
+
 router.post("/policy", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
     try{
 

@@ -8,6 +8,7 @@ const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware"
 router.post("/register", verifyToken, authorizeRoles("Admin"), async (req, res) => {
     try {
         const { first_name, last_name, email, password, department } = req.body;
+        const name = `${first_name} ${last_name}`.trim();
 
         const existingUser = await pool.query(
             "SELECT id FROM employees WHERE email = $1",
@@ -22,10 +23,10 @@ router.post("/register", verifyToken, authorizeRoles("Admin"), async (req, res) 
 
         const result = await pool.query(
             `INSERT INTO employees 
-            (first_name, last_name, email, password, department) 
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING id, first_name, last_name, email, department, role, status`,
-            [first_name, last_name, email, hashedPassword, department]
+            (name, first_name, last_name, email, password, department) 
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, name, first_name, last_name, email, department, role, status`,
+            [name, first_name, last_name, email, hashedPassword, department]
         );
 
         res.status(201).json({
@@ -63,6 +64,7 @@ router.get("/", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => 
 router.post("/", verifyToken, authorizeRoles("Admin"), async (req, res) => {
     try {
         const { first_name, last_name, email, password, department } = req.body;
+        const name = `${first_name} ${last_name}`.trim();
 
         const existingUser = await pool.query(
             "SELECT id FROM employees WHERE email = $1",
@@ -76,10 +78,10 @@ router.post("/", verifyToken, authorizeRoles("Admin"), async (req, res) => {
         const hashedPassword = await bcrypt.hash(password, 10);
 
         const result = await pool.query(
-            `INSERT INTO employees (first_name, last_name, email, password, department)
-             VALUES ($1, $2, $3, $4, $5)
-             RETURNING id, first_name, last_name, email, department, role, status`,
-            [first_name, last_name, email, hashedPassword, department]
+            `INSERT INTO employees (name, first_name, last_name, email, password, department)
+             VALUES ($1, $2, $3, $4, $5, $6)
+             RETURNING id, name, first_name, last_name, email, department, role, status`,
+            [name, first_name, last_name, email, hashedPassword, department]
         );
 
         res.status(201).json({
@@ -353,7 +355,7 @@ router.put("/assign-biometric/:id", verifyToken, authorizeRoles("Admin"), async 
 // Update employee
 router.put("/:id", verifyToken, async (req, res) => {
     try {
-        const { first_name, last_name, department, password } = req.body;
+        const { first_name, last_name, email, department, password } = req.body;
 
         let hashedPassword = null;
 
@@ -363,13 +365,15 @@ router.put("/:id", verifyToken, async (req, res) => {
 
         const result = await pool.query(
             `UPDATE employees
-             SET first_name = $1,
+             SET name = TRIM(CONCAT($1, ' ', $2)),
+                 first_name = $1,
                  last_name = $2,
-                 department = $3,
-                 password = COALESCE($4, password)
-             WHERE id = $5
+                 email = $3,
+                 department = $4,
+                 password = COALESCE($5, password)
+             WHERE id = $6
              RETURNING id`,
-            [first_name, last_name, department, hashedPassword, req.params.id]
+            [first_name, last_name, email, department, hashedPassword, req.params.id]
         );
 
         if (result.rows.length === 0) {

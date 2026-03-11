@@ -109,11 +109,11 @@ router.put("/hire/:id", verifyToken, async (req, res) => {
         const result = await pool.query(
             `
             INSERT INTO employees
-            (first_name, last_name, email, password, role, department, join_date, status)
-            VALUES ($1,$2,$3,$4,'Employee','New Hire',CURRENT_DATE,'active')
-            RETURNING id, first_name, email
+            (name, first_name, last_name, email, password, role, department, join_date, status)
+            VALUES ($1,$2,$3,$4,$5,'Employee','New Hire',CURRENT_DATE,'active')
+            RETURNING id, name, first_name, email
             `,
-            [firstName, lastName, data.email, hashedPassword]
+            [data.name, firstName, lastName, data.email, hashedPassword]
         );
 
         res.json({

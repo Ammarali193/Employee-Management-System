@@ -27,6 +27,7 @@ const createEmployeesTable = async () => {
     const query = `
         CREATE TABLE IF NOT EXISTS employees (
             id SERIAL PRIMARY KEY,
+            name VARCHAR(200),
             first_name VARCHAR(100) NOT NULL,
             last_name VARCHAR(100) NOT NULL,
             email VARCHAR(150) UNIQUE NOT NULL,
@@ -45,6 +46,25 @@ const createEmployeesTable = async () => {
         console.log("Employees table ready");
     } catch (err) {
         console.error("Error creating employees table:", err);
+    }
+};
+
+const addEmployeeNameColumn = async () => {
+    try {
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS name VARCHAR(200);
+        `);
+
+        await pool.query(`
+            UPDATE employees
+            SET name = TRIM(CONCAT(first_name, ' ', last_name))
+            WHERE COALESCE(name, '') = '';
+        `);
+
+        console.log("Employee name column ready");
+    } catch (err) {
+        console.error("Employee name column error:", err);
     }
 };
 
@@ -1135,10 +1155,10 @@ const seedAdmin = async () => {
 
             await pool.query(
                 `
-                INSERT INTO employees (first_name, last_name, email, password, role)
-                VALUES ($1, $2, $3, $4, $5)
+                INSERT INTO employees (name, first_name, last_name, email, password, role)
+                VALUES ($1, $2, $3, $4, $5, $6)
                 `,
-                ["Admin", "User", email, hashedPassword, "Admin"]
+                ["Admin User", "Admin", "User", email, hashedPassword, "Admin"]
             );
 
             console.log("Default admin created");
@@ -1155,6 +1175,7 @@ const initializeTables = async () => {
     console.log("Initializing database...");
 
     await createEmployeesTable();
+    await addEmployeeNameColumn();
     await updateEmployeesTable();
     await addEmployeeLocationColumn();
     await addRFIDColumn();
@@ -1219,8 +1240,10 @@ const calculateSalaryV1 = (basicSalary, presentDays) => {
 // ROUTES
 // ==============================
 const employeeRoutes = require("./routes/employee.routes");
+const employeesRoutes = require("./routes/employees");
 const authRoutes = require("./routes/auth.routes");
-const attendanceRoutes = require("./routes/attendance.routes");
+const attendanceRoutes = require("./routes/attendance");
+const attendanceLegacyRoutes = require("./routes/attendance.routes");
 const leaveRoutes = require("./routes/leave.routes");
 const assetRoutes = require("./routes/assets.routes");
 const payrollRoutes = require("./routes/payroll.routes");
@@ -1243,10 +1266,13 @@ const deviceRoutes = require("./routes/device.routes");
 const holidayRoutes = require("./routes/holiday.routes");
 const complianceRoutes = require("./routes/compliance.routes");
 const lifecycleRoutes = require("./routes/lifecycle.routes");
+const reportsRoutes = require("./routes/reports");
 
+app.use("/api", employeesRoutes);
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authRoutes);
 app.use("/api/attendance", attendanceRoutes);
+app.use("/api/attendance", attendanceLegacyRoutes);
 app.use("/api/leave", leaveRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/payroll", payrollRoutes);
@@ -1269,6 +1295,7 @@ app.use("/api/device", deviceRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/compliance", complianceRoutes);
 app.use("/api/lifecycle", lifecycleRoutes);
+app.use("/api", reportsRoutes);
 
 // ==============================
 // ROOT ROUTE
