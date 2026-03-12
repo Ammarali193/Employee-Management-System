@@ -18,8 +18,10 @@ const getPayslip = async (id) => {
   return res.data;
 };
 
-export default {
+const payrollService = {
   getPayroll,
   assignSalary,
   getPayslip,
 };
+
+export default payrollService;

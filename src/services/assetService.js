@@ -24,9 +24,11 @@ const returnAsset = async (data) => {
   return res.data;
 };
 
-export default {
+const assetService = {
   getAssets,
   assignAsset,
   createAsset,
   returnAsset,
 };
+
+export default assetService;

@@ -6,8 +6,18 @@ const applyLeave = async (data) => {
 };
 
 const getMyLeaves = async () => {
-  const res = await api.get("/leave/all");
-  return res.data;
+  const token = localStorage.getItem("token");
+  const res = await api.get("/leaves/my", {
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  });
+  return res.data.leaves;
+};
+
+const getAllLeaves = async () => {
+  const res = await api.get("/leaves");
+  return res.data.leaves ?? res.data.leave_requests ?? res.data;
 };
 
 const approveLeave = async (id) => {
@@ -20,9 +30,12 @@ const rejectLeave = async (id) => {
   return res.data;
 };
 
-export default {
+const leaveService = {
   applyLeave,
   getMyLeaves,
+  getAllLeaves,
   approveLeave,
   rejectLeave,
 };
+
+export default leaveService;

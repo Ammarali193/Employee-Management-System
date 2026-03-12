@@ -18,8 +18,10 @@ const getTopPerformers = async () => {
   return res.data;
 };
 
-export default {
+const performanceService = {
   getPerformance,
   addPerformance,
   getTopPerformers,
 };
+
+export default performanceService;

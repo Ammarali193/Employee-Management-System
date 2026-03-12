@@ -1,6 +1,7 @@
 import Link from "next/link";
 import {
   getWorkspacePage,
+  type PageMetric,
   type PageId,
   type Tone,
 } from "@/components/layout/workspace-config";
@@ -8,6 +9,7 @@ import {
 type ModulePageProps = {
   pageId: PageId;
   employeeId?: string;
+  metricsOverride?: PageMetric[];
 };
 
 const toneClasses: Record<Tone, string> = {
@@ -16,8 +18,13 @@ const toneClasses: Record<Tone, string> = {
   slate: "border-slate-200/80 bg-slate-50 text-slate-900",
 };
 
-export function ModulePage({ pageId, employeeId }: ModulePageProps) {
+export function ModulePage({
+  pageId,
+  employeeId,
+  metricsOverride,
+}: ModulePageProps) {
   const page = getWorkspacePage(pageId, employeeId);
+  const metrics = metricsOverride ?? page.metrics;
 
   return (
     <section className="space-y-6">
@@ -73,7 +80,7 @@ export function ModulePage({ pageId, employeeId }: ModulePageProps) {
       </div>
 
       <div className="grid gap-4 md:grid-cols-3">
-        {page.metrics.map((item) => (
+        {metrics.map((item) => (
           <div
             key={item.label}
             className={`rounded-[28px] border p-5 shadow-[0_12px_30px_rgba(15,23,42,0.05)] ${toneClasses[item.tone]}`}

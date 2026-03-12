@@ -1,5 +1,5 @@
-import { ModulePage } from "@/components/layout/module-page";
+import { redirect } from "next/navigation";
 
 export default function AttendanceShiftsPage() {
-  return <ModulePage pageId="attendance.shifts" />;
+  redirect("/shifts");
 }

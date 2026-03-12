@@ -2,13 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 type Employee = {
   id: number;
-  first_name: string;
-  last_name: string;
+  name: string;
   email: string;
-  department: string;
+  department: string | null;
 };
 
 async function fetchEmployees(): Promise<Employee[]> {
@@ -22,19 +22,23 @@ async function fetchEmployees(): Promise<Employee[]> {
 
   const data = await res.json();
 
-  return Array.isArray(data.employees) ? data.employees : [];
+  return Array.isArray(data) ? data : [];
 }
 
 export default function EmployeesPage() {
   const [employees, setEmployees] = useState<Employee[]>([]);
+  const [search, setSearch] = useState("");
   const router = useRouter();
+  const filteredEmployees = employees.filter((emp) =>
+    emp.name?.toLowerCase().includes(search.toLowerCase()),
+  );
+
+  const loadEmployees = async () => {
+    const data = await fetchEmployees();
+    setEmployees(data);
+  };
 
   useEffect(() => {
-    const loadEmployees = async () => {
-      const data = await fetchEmployees();
-      setEmployees(data);
-    };
-
     void loadEmployees();
   }, []);
 
@@ -50,8 +54,7 @@ export default function EmployeesPage() {
 
     if (res.ok) {
       alert("Employee deleted");
-      const data = await fetchEmployees();
-      setEmployees(data);
+      await loadEmployees();
     }
   };
 
@@ -68,9 +71,18 @@ export default function EmployeesPage() {
         </button>
       </div>
 
+      <input
+        type="text"
+        placeholder="Search employee..."
+        className="mb-4 rounded border p-2"
+        value={search}
+        onChange={(e) => setSearch(e.target.value)}
+      />
+
       <table className="w-full border">
         <thead className="bg-gray-100">
           <tr>
+            <th className="border p-2">ID</th>
             <th className="border p-2">Name</th>
             <th className="border p-2">Email</th>
             <th className="border p-2">Department</th>
@@ -79,26 +91,33 @@ export default function EmployeesPage() {
         </thead>
 
         <tbody>
-          {employees.map((emp) => (
+          {filteredEmployees.map((emp) => (
             <tr key={emp.id}>
-              <td className="border p-2">
-                {emp.first_name} {emp.last_name}
-              </td>
+              <td className="border p-2">{emp.id}</td>
+
+              <td className="border p-2">{emp.name}</td>
 
               <td className="border p-2">{emp.email}</td>
 
-              <td className="border p-2">{emp.department}</td>
+              <td className="border p-2">{emp.department ?? "-"}</td>
 
               <td className="space-x-2 border p-2">
-                <button
-                  className="rounded bg-yellow-500 px-3 py-1 text-white"
-                  onClick={() => router.push(`/employees/edit/${emp.id}`)}
+                <Link
+                  href={`/employees/profile/${emp.id}`}
+                  className="rounded bg-green-500 px-2 py-1 text-white"
+                >
+                  View
+                </Link>
+
+                <Link
+                  href={`/employees/edit/${emp.id}`}
+                  className="rounded bg-yellow-500 px-2 py-1 text-white"
                 >
                   Edit
-                </button>
+                </Link>
 
                 <button
-                  className="rounded bg-red-500 px-3 py-1 text-white"
+                  className="rounded bg-red-500 px-2 py-1 text-white"
                   onClick={() => handleDelete(emp.id)}
                 >
                   Delete

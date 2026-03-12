@@ -1,83 +1,87 @@
 "use client";
 
-import { useState, type FormEvent } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
+import employeeService from "@/services/employeeService";
 
 export default function CreateEmployee() {
   const router = useRouter();
 
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [department, setDepartment] = useState("");
+  const [form, setForm] = useState({
+    first_name: "",
+    last_name: "",
+    email: "",
+    password: "",
+    department: "",
+  });
 
-  const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
-    e.preventDefault();
-    const token = localStorage.getItem("token");
-
-    const res = await fetch("http://localhost:5000/api/employees", {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
-      },
-      body: JSON.stringify({
-        first_name: firstName,
-        last_name: lastName,
-        email,
-        password,
-        department,
-      }),
+const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    setForm({
+      ...form,
+      [e.target.name]: e.target.value,
     });
+  };
 
-    const data = await res.json();
+interface EmployeeForm {
+  first_name: string;
+  last_name: string;
+  email: string;
+  password: string;
+  department: string;
+}
 
-    if (res.ok) {
-      alert("Employee created");
-      router.push("/employees");
-    } else {
-      alert(data.message);
-    }
+const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+
+    await employeeService.createEmployee(form);
+
+    alert("Employee added successfully");
+
+    router.push("/employees");
   };
 
   return (
-    <div className="p-10">
-      <h2 className="mb-6 text-2xl font-bold">Create Employee</h2>
+    <div className="p-6 max-w-md">
+      <h1 className="text-2xl font-bold mb-6">Create Employee</h1>
 
-      <form onSubmit={handleSubmit} className="max-w-md space-y-4">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          className="w-full border p-2"
+          name="first_name"
           placeholder="First Name"
-          onChange={(e) => setFirstName(e.target.value)}
+          className="w-full border p-2"
+          onChange={handleChange}
         />
 
         <input
-          className="w-full border p-2"
+          name="last_name"
           placeholder="Last Name"
-          onChange={(e) => setLastName(e.target.value)}
+          className="w-full border p-2"
+          onChange={handleChange}
         />
 
         <input
-          className="w-full border p-2"
+          name="email"
           placeholder="Email"
-          onChange={(e) => setEmail(e.target.value)}
+          className="w-full border p-2"
+          onChange={handleChange}
         />
 
         <input
+          name="password"
           type="password"
-          className="w-full border p-2"
           placeholder="Password"
-          onChange={(e) => setPassword(e.target.value)}
+          className="w-full border p-2"
+          onChange={handleChange}
         />
 
         <input
-          className="w-full border p-2"
+          name="department"
           placeholder="Department"
-          onChange={(e) => setDepartment(e.target.value)}
+          className="w-full border p-2"
+          onChange={handleChange}
         />
 
-        <button className="rounded bg-blue-500 px-4 py-2 text-white">
+        <button className="bg-blue-600 text-white px-4 py-2 rounded">
           Add Employee
         </button>
       </form>

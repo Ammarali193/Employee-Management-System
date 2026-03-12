@@ -58,6 +58,22 @@ export default function Sidebar() {
         </li>
 
         <li>
+          <Link href="/compliance/policies">Compliance Policies</Link>
+        </li>
+
+        <li>
+          <Link href="/compliance/policies/create">Add Policy</Link>
+        </li>
+
+        <li>
+          <Link href="/compliance/audit">Audit Logs</Link>
+        </li>
+
+        <li>
+          <Link href="/compliance/reports">Compliance Report</Link>
+        </li>
+
+        <li>
           <Link href="/lifecycle">Lifecycle</Link>
         </li>
       </ul>
