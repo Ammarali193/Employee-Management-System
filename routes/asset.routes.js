@@ -5,9 +5,9 @@ const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware"
 const { logAction } = require("../middlewares/audit.middleware");
 
 // ==============================
-// ADD NEW ASSET (Admin Only)
+// ADD NEW ASSET
 // ==============================
-router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.post("/add", verifyToken, async (req, res) => {
     try {
         const { name, category, serial_number } = req.body;
 
@@ -40,9 +40,9 @@ router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
 });
 
 // ==============================
-// ASSIGN ASSET TO EMPLOYEE (Admin Only)
+// ASSIGN ASSET TO EMPLOYEE
 // ==============================
-router.post("/assign", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.post("/assign", verifyToken, async (req, res) => {
     try {
         const { asset_id, employee_id } = req.body;
 
