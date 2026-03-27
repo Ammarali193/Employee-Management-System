@@ -1,35 +1,19 @@
 import axios from "axios";
 
 const api = axios.create({
-  baseURL: "http://localhost:5000/api",
-  headers: {
-    "Content-Type": "application/json",
-  },
+baseURL: process.env.NEXT_PUBLIC_API_URL || (typeof window !== 'undefined' ? "http://localhost:5000/api" : process.env.API_URL || "http://localhost:5000/api"),
 });
 
-// Request interceptor - add auth token
-api.interceptors.request.use(
-  (config) => {
-    const token = localStorage.getItem("token");
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-    return config;
-  },
-  (error) => Promise.reject(error)
-);
+// 🔥 YEH ADD KARNA ZAROORI HAI
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem("token");
 
-// Response interceptor - handle errors globally
-api.interceptors.response.use(
-  (response) => response,
-  (error) => {
-    if (error.response?.status === 401) {
-      localStorage.removeItem("token");
-      window.location.href = "/login";
-    }
-    return Promise.reject(error);
+  if (token) {
+    config.headers.Authorization = `Bearer ${token}`;
   }
-);
+
+  return config;
+});
 
 export default api;
 

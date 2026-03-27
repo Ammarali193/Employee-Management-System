@@ -1,123 +1,199 @@
 "use client";
 
-import { useState, useEffect, useContext } from \"react\";
-import { useForm } from \"react-hook-form\";
-import { zodResolver } from \"@hookform/resolvers/zod\";
-import * as z from \"zod\";
-import { useRouter } from \"next/navigation\";
-import { AuthContext } from \"@/context/AuthContext\";
-import { toast } from \"react-hot-toast\";
-import authService from \"@/services/authService\";
+import { useContext, useEffect, useState, type FormEvent } from "react";
+import { useRouter } from "next/navigation";
+import { AuthContext } from "@/context/AuthContext";
+import { toast } from "react-hot-toast";
+import authService from "@/services/authService";
 
-const loginSchema = z.object({
-  email: z.string().email(\"Valid email required\").min(1, \"Email required\"),
-  password: z.string().min(6, \"Password must be at least 6 characters\").max(100),
-});
+type ApiError = {
+  response?: {
+    data?:
+      | {
+          message?: string;
+          error?: string;
+          errors?: Array<{ msg?: string; message?: string }>;
+        }
+      | string;
+  };
+};
 
-type LoginFormData = z.infer<typeof loginSchema>;
+const getRoleFromToken = (token: string) => {
+  try {
+    const [, payload = ""] = token.split(".");
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decodedPayload = JSON.parse(atob(normalizedPayload));
+
+    return typeof decodedPayload?.role === "string"
+      ? decodedPayload.role
+      : "admin";
+  } catch {
+    return "admin";
+  }
+};
+
+const getErrorMessage = (error: unknown, fallbackMessage: string) => {
+  if (typeof error === "object" && error !== null && "response" in error) {
+    const apiError = error as ApiError;
+    const responseData = apiError.response?.data;
+
+    if (typeof responseData === "string" && responseData.trim()) {
+      return responseData;
+    }
+
+    if (responseData && typeof responseData === "object") {
+      if (responseData.message) {
+        return responseData.message;
+      }
+
+      if (responseData.error) {
+        return responseData.error;
+      }
+
+      const firstValidationError = responseData.errors?.find(
+        (validationError) => validationError?.msg || validationError?.message,
+      );
+
+      if (firstValidationError?.msg) {
+        return firstValidationError.msg;
+      }
+
+      if (firstValidationError?.message) {
+        return firstValidationError.message;
+      }
+    }
+  }
+
+  if (error instanceof Error && error.message) {
+    return error.message;
+  }
+
+  return fallbackMessage;
+};
 
 export default function LoginPage() {
   const router = useRouter();
-  const { user, setUser } = useContext(AuthContext);
+  const { login } = useContext(AuthContext);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    reset,
-  } = useForm<LoginFormData>({
-    resolver: zodResolver(loginSchema),
-  });
-
   useEffect(() => {
-    if (user) {
-      router.push(\"/dashboard\");
+    const token = localStorage.getItem("token");
+    if (token) {
+      router.push("/dashboard");
     }
-  }, [user, router]);
+  }, [router]);
 
-  const onSubmit = async (data: LoginFormData) => {
+  const handleLogin = async () => {
+    if (!email.trim() || !password) {
+      toast.error("Email and password are required.");
+      return;
+    }
+
     setLoading(true);
+
     try {
-      const response = await authService.login(data.email, data.password);
-      localStorage.setItem(\"token\", response.token);
-      setUser(response.user);
-      toast.success(\"Login successful!\");
-      router.push(\"/dashboard\");
-      reset();
-    } catch (error: any) {
-      const message = error?.response?.data?.message || \"Login failed. Please check credentials.\";
-      toast.error(message);
+      const response = await authService.login(email.trim(), password);
+      const role = response.user?.role ?? getRoleFromToken(response.token);
+
+      console.info("[login-page] Login successful", {
+        email: email.trim(),
+        role,
+      });
+
+      login(response.token, role);
+
+      toast.success("Login successful!");
+      router.push("/dashboard");
+    } catch (error: unknown) {
+      console.error("[login-page] Login failed", {
+        email: email.trim(),
+        error,
+      });
+
+      toast.error(
+        getErrorMessage(error, "Login failed. Please check credentials."),
+      );
     } finally {
       setLoading(false);
     }
   };
 
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault();
+    void handleLogin();
+  };
+
   return (
-    <div className=\"min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12 sm:px-6 lg:px-8\">
-      <div className=\"max-w-md w-full space-y-8 bg-white p-10 rounded-2xl shadow-xl\">
-        <div className=\"text-center\">
-          <h2 className=\"text-3xl font-bold text-gray-900\">Welcome to EMS</h2>
-          <p className=\"mt-2 text-sm text-gray-600\">Sign in to your account</p>
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-blue-50 to-indigo-100 px-4 py-12">
+      <div className="max-w-md w-full bg-white p-10 rounded-2xl shadow-xl space-y-8">
+        
+        <div className="text-center">
+          <h2 className="text-3xl font-bold text-gray-900">Welcome to EMS</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            Sign in to your account
+          </p>
         </div>
 
-        <form className=\"space-y-6\" onSubmit={handleSubmit(onSubmit)}>
+        <form className="space-y-6" onSubmit={onSubmit}>
+
+          {/* Email */}
           <div>
-            <label htmlFor=\"email\" className=\"block text-sm font-medium text-gray-700 mb-2\">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Email Address
             </label>
+
             <input
-              id=\"email\"
-              type=\"email\"
-              className={`w-full px-4 py-3 rounded-xl border transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.email ? \"border-red-400\" : \"border-gray-300\"
-              }`}
-              placeholder=\"Enter your email\"
-              {...register(\"email\")}
+              type="email"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your email"
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               disabled={loading}
             />
-            {errors.email && (
-              <p className=\"mt-1 text-sm text-red-600\">{errors.email.message}</p>
-            )}
           </div>
 
+          {/* Password */}
           <div>
-            <label htmlFor=\"password\" className=\"block text-sm font-medium text-gray-700 mb-2\">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
               Password
             </label>
+
             <input
-              id=\"password\"
-              type=\"password\"
-              className={`w-full px-4 py-3 rounded-xl border transition-colors focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                errors.password ? \"border-red-400\" : \"border-gray-300\"
-              }`}
-              placeholder=\"Enter your password\"
-              {...register(\"password\")}
+              type="password"
+              className="w-full rounded-xl border border-gray-300 px-4 py-3 focus:ring-2 focus:ring-blue-500"
+              placeholder="Enter your password"
+              value={password}
+              onChange={(event) => setPassword(event.target.value)}
               disabled={loading}
             />
-            {errors.password && (
-              <p className=\"mt-1 text-sm text-red-600\">{errors.password.message}</p>
-            )}
           </div>
 
+          {/* Login Button */}
           <button
-            type=\"submit\"
+            type="submit"
             disabled={loading}
-            className=\"w-full py-3 px-4 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 focus:ring-4 focus:ring-blue-200 transition-all disabled:opacity-50 disabled:cursor-not-allowed\"
+            className="w-full py-3 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition"
           >
-            {loading ? \"Signing in...\" : \"Sign In\"}
+            {loading ? "Signing in..." : "Sign In"}
           </button>
+
         </form>
 
-        <div className=\"text-center\">
-          <button
-            type=\"button\"
-            className=\"text-blue-600 hover:text-blue-500 text-sm font-medium\"
-            onClick={() => toast(\"Coming soon!\")}
-          >
-            Forgot your password?
-          </button>
+          {/* Signup Link */}
+        <div className="text-center text-sm">
+          <p>
+            Don&apos;t have an account?{" "}
+            <span
+              onClick={() => router.push("/signup")}
+              className="text-blue-600 cursor-pointer font-semibold"
+            >
+              Sign Up
+            </span>
+          </p>
         </div>
+
       </div>
     </div>
   );

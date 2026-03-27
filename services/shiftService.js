@@ -1,39 +1,41 @@
-const API = "http://localhost:5000/api/shifts";
+// import api from "./api";
 
-export const getShifts = async () => {
-  const res = await fetch(API);
-  return res.json();
-};
+// const shiftService = {
+//   getShifts: async () => {
+//     const res = await api.get("/shifts"); // ✅ bas ye hi
+//     return res.data;
+//   },
 
-export const createShift = async (data) => {
-  const res = await fetch(API, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
+//   createShift: async (data) => {
+//     const res = await api.post("/shifts", data);
+//     return res.data;
+//   },
+// };
 
-  return res.json();
-};
+// export default shiftService;
 
-export const updateShift = async (id, data) => {
-  const res = await fetch(`${API}/${id}`, {
-    method: "PUT",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify(data),
-  });
-
-  return res.json();
-};
-
-export const deleteShift = async (id) => {
-  await fetch(`${API}/${id}`, { method: "DELETE" });
-};
+import api from "./api";
 
 const shiftService = {
-  getShifts,
-  createShift,
-  updateShift,
-  deleteShift,
+  getShifts: async () => {
+    try {
+      const res = await api.get("/shifts");
+      return res.data;
+    } catch (error) {
+      console.error("Error fetching shifts:", error);
+      throw error;
+    }
+  },
+
+  createShift: async (data) => {
+    try {
+      const res = await api.post("/shifts", data);
+      return res.data;
+    } catch (error) {
+      console.error("Error creating shift:", error);
+      throw error;
+    }
+  },
 };
 
 export default shiftService;

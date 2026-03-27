@@ -1,5 +1,5 @@
-import PayrollReport from "@/app/payroll/report/page";
+import { ModulePage } from "@/components/layout/module-page";
 
 export default function PayrollReportsPage() {
-  return <PayrollReport />;
+  return <ModulePage pageId="payroll.reports" />;
 }

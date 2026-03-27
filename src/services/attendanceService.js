@@ -1,27 +1,65 @@
-import api from \"./api\";
+// import api from "./api";
+
+// const getAttendance = async () => {
+// await api.get("/api/attendance");
+//   return res.data;
+// };
+
+// const getStats = async () => {
+// await api.get("/api/attendance/stats");
+//   return res.data;
+// };
+
+// const checkIn = async () => {
+// await api.post("/api/attendance/checkin");
+//   return res.data;
+// };
+
+// const checkOut = async () => {
+// await api.post("/api/attendance/checkout");
+//   return res.data;
+// };
+
+// const getMyAttendance = async () => {
+//   const employeeId = localStorage.getItem("employee_id") || 4;
+// await api.get(`/api/attendance/my?employee_id=${employeeId}`);
+//   return res.data;
+// };
+
+// const attendanceService = {
+//   getAttendance,
+//   getStats,
+//   checkIn,
+//   checkOut,
+//   getMyAttendance,
+// };
+
+// export default attendanceService;
+
+import api from "./api";
 
 const getAttendance = async () => {
-  const res = await api.get(\"/attendance\");
+  const res = await api.get("/attendance");
   return res.data;
 };
 
 const getStats = async () => {
-  const res = await api.get(\"/attendance/stats\");
+  const res = await api.get("/attendance/stats");
   return res.data;
 };
 
 const checkIn = async () => {
-  const res = await api.post(\"/attendance/checkin\");
+  const res = await api.post("/attendance/checkin");
   return res.data;
 };
 
 const checkOut = async () => {
-  const res = await api.post(\"/attendance/checkout\");
+  const res = await api.post("/attendance/checkout");
   return res.data;
 };
 
 const getMyAttendance = async () => {
-  const employeeId = localStorage.getItem(\"employee_id\") || 4;
+  const employeeId = localStorage.getItem("employee_id") || 4;
   const res = await api.get(`/attendance/my?employee_id=${employeeId}`);
   return res.data;
 };
@@ -35,4 +73,3 @@ const attendanceService = {
 };
 
 export default attendanceService;
-

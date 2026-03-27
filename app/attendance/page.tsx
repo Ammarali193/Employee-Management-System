@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import attendanceService from "@/services/attendanceService";
 
 type AttendanceLog = {
   id: number | string;
@@ -68,8 +69,11 @@ const loadAttendance = async () => {
   };
 
   useEffect(() => {
-    void loadStats();
-    void loadAttendance();
+    const loadData = async () => {
+      await loadStats();
+      await loadAttendance();
+    };
+    void loadData();
   }, []);
 
   const formatTime = (time?: string | null) => {

@@ -1,37 +1,45 @@
 "use client";
 
-import { createContext, useState, useEffect, useCallback } from 'react';
+import { createContext, useState } from "react";
 
 export const AuthContext = createContext();
 
+const parseUserFromToken = (token) => {
+  try {
+    const [, payload = ""] = token.split(".");
+    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
+    const decodedPayload = JSON.parse(atob(normalizedPayload));
+
+    return {
+      token,
+      role: decodedPayload?.role ?? "admin",
+    };
+  } catch {
+    localStorage.removeItem("token");
+    return null;
+  }
+};
+
+const getInitialUser = () => {
+  if (typeof window === "undefined") {
+    return null;
+  }
+
+  const token = localStorage.getItem("token");
+
+  return token ? parseUserFromToken(token) : null;
+};
+
 export const AuthProvider = ({ children }) => {
-  const [user, setUser] = useState(null);
-
-  const loadUserFromToken = useCallback(() => {
-    if (typeof window !== 'undefined') {
-      const token = localStorage.getItem('token');
-      if (token) {
-        try {
-          const userData = JSON.parse(atob(token.split('.')[1]));
-          setUser({ token, role: userData.role });
-        } catch {
-          localStorage.removeItem('token');
-        }
-      }
-    }
-  }, []);
-
-  useEffect(() => {
-    loadUserFromToken();
-  }, [loadUserFromToken]);
+  const [user, setUser] = useState(getInitialUser);
 
   const login = (token, role) => {
-    localStorage.setItem('token', token);
+    localStorage.setItem("token", token);
     setUser({ token, role });
   };
 
   const logout = () => {
-    localStorage.removeItem('token');
+    localStorage.removeItem("token");
     setUser(null);
   };
 
@@ -41,4 +49,3 @@ export const AuthProvider = ({ children }) => {
     </AuthContext.Provider>
   );
 };
-

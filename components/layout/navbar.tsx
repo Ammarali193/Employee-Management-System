@@ -1,6 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useContext } from "react";
+import { useRouter } from "next/navigation";
+import { AuthContext } from "@/context/AuthContext";
 import {
   getBreadcrumbs,
   getRouteSummary,
@@ -12,6 +15,14 @@ type NavbarProps = {
 };
 
 export function Navbar({ pathname, onMenuClick }: NavbarProps) {
+  const router = useRouter();
+  const { logout } = useContext(AuthContext);
+
+  const handleLogout = () => {
+    logout();
+    router.push("/login");
+  };
+
   const summary = getRouteSummary(pathname);
   const breadcrumbs = getBreadcrumbs(pathname);
   const today = new Intl.DateTimeFormat("en-US", {
@@ -70,12 +81,12 @@ export function Navbar({ pathname, onMenuClick }: NavbarProps) {
               Sync healthy · {today}
             </p>
           </div>
-          <Link
-            href="/login"
-            className="rounded-full bg-slate-950 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(15,23,42,0.18)] transition hover:bg-slate-800"
+          <button
+            onClick={handleLogout}
+            className="rounded-full bg-red-600 px-4 py-2.5 text-sm font-semibold text-white shadow-[0_18px_40px_rgba(220,38,38,0.3)] transition hover:bg-red-700"
           >
-            Switch user
-          </Link>
+            Logout
+          </button>
         </div>
       </div>
     </header>
