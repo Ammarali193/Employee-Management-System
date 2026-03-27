@@ -1,12 +1,3 @@
-# Backend Maintenance Route Fix - TODO
+# Vercel 404 Fix - TODO\n\n## Completed:\n✅ vercel.json created\n✅ api/index.js serverless handler\n✅ config/db.js serverless PG\n✅ package.json build script + deps\n\n## Remaining:\n- [ ] 5. Setup Vercel env vars (DB_*)\n- [ ] 6. Redeploy\n- [ ] Test /api/payroll\n\n**Status: Ready for deployment!**"
 
-**✅ Plan Approved**
 
-**Current Progress:**
-- [x] Analyzed files: routes/maintenanceRoutes.js, server.js
-- [x] Confirmed server.js route mounting correct
-- [x] Step 1: Add PUT /maintenance/:id route to maintenanceRoutes.js
-- [x] Step 2: Test endpoint (manual verification needed)
-- [x] Step 3: Complete task
-
-**Next Action:** Implementing the PUT route...
