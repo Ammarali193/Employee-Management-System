@@ -32,7 +32,11 @@ const createEmployeesTable = async () => {
             last_name VARCHAR(100) NOT NULL,
             email VARCHAR(150) UNIQUE NOT NULL,
             password VARCHAR(255) NOT NULL,
+            tenant_id VARCHAR(100) NOT NULL DEFAULT 'default',
             department VARCHAR(100),
+            shift VARCHAR(100),
+            work_type VARCHAR(50),
+            allow_remote BOOLEAN DEFAULT FALSE,
             role VARCHAR(50) DEFAULT 'Employee',
             join_date DATE DEFAULT CURRENT_DATE,
             status VARCHAR(20) DEFAULT 'active',
@@ -104,6 +108,73 @@ const updateEmployeesTable = async () => {
         console.log("✅ Employees table updated");
     } catch (err) {
         console.error("❌ Employee table update error:", err);
+    }
+};
+
+const addEmployeeWorkPreferenceColumns = async () => {
+    try {
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS shift VARCHAR(100);
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS work_type VARCHAR(50);
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS shift_type VARCHAR(50);
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS allow_remote BOOLEAN DEFAULT FALSE;
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS is_emergency_remote BOOLEAN DEFAULT FALSE;
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS emergency_end_date TIMESTAMP;
+        `);
+
+        console.log("Employee work preference columns ready");
+    } catch (err) {
+        console.error("Employee work preference column error:", err);
+    }
+};
+
+const addEmployeeTenantColumn = async () => {
+    try {
+        await pool.query(`
+            ALTER TABLE employees
+            ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(100) DEFAULT 'default';
+        `);
+
+        await pool.query(`
+            UPDATE employees
+            SET tenant_id = 'default'
+            WHERE COALESCE(tenant_id, '') = '';
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ALTER COLUMN tenant_id SET DEFAULT 'default';
+        `);
+
+        await pool.query(`
+            ALTER TABLE employees
+            ALTER COLUMN tenant_id SET NOT NULL;
+        `);
+
+        console.log("Employee tenant column ready");
+    } catch (err) {
+        console.error("Employee tenant column error:", err);
     }
 };
 
@@ -1144,6 +1215,7 @@ const seedAdmin = async () => {
     try {
         const email = process.env.DEFAULT_ADMIN_EMAIL || "admin@company.com";
         const plainPassword = process.env.DEFAULT_ADMIN_PASSWORD || "Admin@123";
+        const tenantId = process.env.DEFAULT_TENANT_ID || "default";
 
         const existing = await pool.query(
             "SELECT id FROM employees WHERE email = $1",
@@ -1155,10 +1227,10 @@ const seedAdmin = async () => {
 
             await pool.query(
                 `
-                INSERT INTO employees (name, first_name, last_name, email, password, role)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                INSERT INTO employees (name, first_name, last_name, email, password, role, tenant_id)
+                VALUES ($1, $2, $3, $4, $5, $6, $7)
                 `,
-                ["Admin User", "Admin", "User", email, hashedPassword, "Admin"]
+                ["Admin User", "Admin", "User", email, hashedPassword, "Admin", tenantId]
             );
 
             console.log("Default admin created");
@@ -1177,6 +1249,8 @@ const initializeTables = async () => {
     await createEmployeesTable();
     await addEmployeeNameColumn();
     await updateEmployeesTable();
+    await addEmployeeWorkPreferenceColumns();
+    await addEmployeeTenantColumn();
     await addEmployeeLocationColumn();
     await addRFIDColumn();
     await addQRCodeColumn();
@@ -1224,6 +1298,7 @@ const initializeTables = async () => {
     await createCandidatesTable();
     await createInterviewsTable();
     await createExitRequestsTable();
+    await seedAdmin();
 
     console.log("Database initialization completed");
 };
@@ -1241,9 +1316,9 @@ const calculateSalaryV1 = (basicSalary, presentDays) => {
 // ==============================
 const employeeRoutes = require("./routes/employee.routes");
 const employeesRoutes = require("./routes/employees");
-const authRoutes = require("./routes/auth.routes");
-const attendanceRoutes = require("./routes/attendance");
-const attendanceLegacyRoutes = require("./routes/attendance.routes");
+const authRoutes = require("./routes/auth");
+const authScopedRoutes = require("./routes/auth.routes");
+const attendanceRoutes = require("./routes/attendance.routes");
 const leaveRoutes = require("./routes/leave.routes");
 const assetRoutes = require("./routes/assets.routes");
 const payrollRoutes = require("./routes/payroll.routes");
@@ -1267,12 +1342,15 @@ const holidayRoutes = require("./routes/holiday.routes");
 const complianceRoutes = require("./routes/compliance.routes");
 const lifecycleRoutes = require("./routes/lifecycle.routes");
 const reportsRoutes = require("./routes/reports");
+const shiftSimpleRoutes = require("./routes/shifts");
+
+const maintenanceRoutes = require("./routes/maintenanceRoutes");
 
 app.use("/api", employeesRoutes);
+app.use("/api", authRoutes);
 app.use("/api/employees", employeeRoutes);
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authScopedRoutes);
 app.use("/api/attendance", attendanceRoutes);
-app.use("/api/attendance", attendanceLegacyRoutes);
 app.use("/api/leave", leaveRoutes);
 app.use("/api/assets", assetRoutes);
 app.use("/api/payroll", payrollRoutes);
@@ -1295,7 +1373,9 @@ app.use("/api/device", deviceRoutes);
 app.use("/api/holidays", holidayRoutes);
 app.use("/api/compliance", complianceRoutes);
 app.use("/api/lifecycle", lifecycleRoutes);
+app.use("/api/simple-shifts", shiftSimpleRoutes);
 app.use("/api", reportsRoutes);
+app.use("/api", maintenanceRoutes);
 
 // ==============================
 // ROOT ROUTE
@@ -1323,8 +1403,22 @@ const startServer = async () => {
 
         await initializeTables();
 
-        app.listen(PORT, () => {
-            console.log(`Server running on port ${PORT}`);
+        const server = app.listen(PORT);
+
+        server.once("listening", () => {
+            console.log(`Server running on port ${PORT} (pid: ${process.pid})`);
+        });
+
+        server.once("error", (error) => {
+            console.error(`Failed to start server on port ${PORT}:`, error.message);
+
+            if (error.code === "EADDRINUSE") {
+                console.error(
+                    `Port ${PORT} is already in use. Stop the old Node process and run the server again.`
+                );
+            }
+
+            process.exit(1);
         });
 
     } catch (error) {

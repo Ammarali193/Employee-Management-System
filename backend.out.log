@@ -1,0 +1,56 @@
+[dotenv@17.3.1] injecting env (5) from .env -- tip: 🛡️ auth for agents: https://vestauth.com
+Initializing database...
+✅ PostgreSQL connected successfully
+Employees table ready
+Employee name column ready
+✅ Employees table updated
+Employee work preference columns ready
+Employee tenant column ready
+✅ Employee location column ready
+✅ RFID column ready
+✅ QR code column ready
+✅ Biometric ID column ready
+✅ Device employee code ready
+✅ Emergency contacts table ready
+✅ Employment history table ready
+✅ Employee documents table ready
+✅ Custom fields table ready
+✅ Shifts table ready
+✅ Employee shifts table ready
+✅ Departments table ready
+Attendance table ready
+✅ Attendance method column ready
+✅ Overtime column ready
+✅ Attendance status column ready
+✅ GPS location fields ready
+Leave types table ready
+Leave requests table ready
+Assets table ready
+✅ Asset status column ready
+Asset assigned_to column ready
+Asset assignments table ready
+✅ Asset maintenance table ready
+✅ Salary table ready
+✅ Salary allowances/deductions columns ready
+✅ Currency column added
+✅ Tax rules table ready
+✅ Audit log table ready
+✅ Performance table ready
+✅ KPI table ready
+✅ Feedback table ready
+✅ Appraisal cycle table ready
+✅ Appraisal results table ready
+✅ Training courses table ready
+✅ Employee training table ready
+✅ Loans table ready
+? Leave balance table ready
+✅ Leave policy table ready
+✅ Policies table ready
+✅ Onboarding table ready
+✅ Holidays table ready
+✅ Job posts table ready
+✅ Candidates table ready
+✅ Interviews table ready
+✅ Exit requests table ready
+Database initialization completed
+Server running on port 5000 (pid: 29444)

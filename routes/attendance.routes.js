@@ -1,51 +1,80 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
-const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
+const auth = require("../middleware/authMiddleware");
 
-// ==============================
-// ?? CHECK-IN ROUTE
-// ==============================
-router.post("/checkin", verifyToken, async (req, res) => {
-    try {
-        const employeeId = req.user.id;
+// Health check route
+router.get("/attendance", auth([]), async (req, res) => {
+  const user = req.user;
+  if (!user || !user.role || user.role.toLowerCase() !== "admin") {
+    return res.status(403).json({ error: "Forbidden" });
+  }
 
-        await pool.query(
-            `
-            INSERT INTO attendance (employee_id, check_in)
-            VALUES ($1, NOW())
-            `,
-            [employeeId]
-        );
+  res.json({ message: "Attendance data" });
+});
 
-        res.json({ message: "Checked in successfully" });
-    } catch (error) {
-        console.error("Check-in error:", error);
-        res.status(500).json({ message: "Server error" });
-    }
+// GET all attendance
+router.get("/", auth([]), async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT
+        a.id,
+        a.employee_id,
+        e.name AS employee_name,
+        a.check_in,
+        a.check_out,
+        a.status
+      FROM attendance a
+      JOIN employees e ON a.employee_id = e.id
+      ORDER BY a.check_in DESC
+    `);
+    res.json(result.rows);
+  } catch (err) {
+    console.error(err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+// ✅ STATS - dashboard cards ke liye
+// ✅ GET Attendance Stats (MOCK)
+router.get("/stats", (req, res) => {
+  res.json({
+    total: 10,
+    present: 8,
+    absent: 2,
+  });
 });
 
 // ==============================
-// 🔹 CHECK-OUT ROUTE
+// ✅ CHECK-IN ROUTE
 // ==============================
-router.post("/checkout", verifyToken, async (req, res) => {
-    try {
-        const employeeId = req.user.id;
+// ✅ POST Check-in (MOCK)
+router.post("/checkin", (req, res) => {
+  res.json({
+    message: "Check-in successful",
+  });
+});
 
-        await pool.query(
-            `
-            UPDATE attendance
-            SET check_out = NOW()
-            WHERE employee_id = $1 AND check_out IS NULL
-            `,
-            [employeeId]
-        );
-
-        res.json({ message: "Checked out successfully" });
-    } catch (error) {
-        console.error(error);
-        res.status(500).json({ message: "Server error" });
+// ==============================
+// ✅ CHECK-OUT ROUTE
+// ==============================
+router.post("/checkout", auth([]), async (req, res) => {
+  try {
+    const employee_id = req.body.employee_id || req.user.id;
+    const result = await pool.query(
+      `UPDATE attendance SET check_out = NOW()
+       WHERE employee_id = $1 
+         AND DATE(check_in) = CURRENT_DATE
+         AND check_out IS NULL
+       RETURNING *`,
+      [employee_id]
+    );
+    if (result.rows.length === 0) {
+      return res.status(404).json({ error: "No active check-in found" });
     }
+    res.json(result.rows[0]);
+  } catch (err) {
+    res.status(500).json({ error: "Server error" });
+  }
 });
 
 router.get("/my", async (req, res) => {
@@ -74,7 +103,7 @@ router.get("/my", async (req, res) => {
     }
 });
 
-router.get("/history", verifyToken, async (req, res) => {
+router.get("/history", auth([]), async (req, res) => {
     try {
         const employeeId = req.user.id;
 
@@ -265,7 +294,7 @@ router.post("/qr/checkout", async (req, res) => {
     }
 });
 
-router.post("/gps/checkin", verifyToken, async (req, res) => {
+router.post("/gps/checkin", auth([]), async (req, res) => {
     try {
 
         const employee_id = req.user.id;
@@ -298,7 +327,7 @@ router.post("/gps/checkin", verifyToken, async (req, res) => {
     }
 });
 
-router.post("/gps/checkout", verifyToken, async (req, res) => {
+router.post("/gps/checkout", auth([]), async (req, res) => {
     try {
 
         const employee_id = req.user.id;
@@ -409,7 +438,7 @@ router.post("/biometric/checkout", async (req, res) => {
     }
 });
 
-router.get("/monthly/:employeeId", verifyToken, async (req, res) => {
+router.get("/monthly/:employeeId", auth([]), async (req, res) => {
     try {
         const { employeeId } = req.params;
         const { month, year } = req.query;
@@ -452,7 +481,7 @@ router.get("/monthly/:employeeId", verifyToken, async (req, res) => {
 // ==============================
 // DAILY ATTENDANCE REPORT
 // ==============================
-router.get("/report/daily", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/report/daily", auth(["Admin"]), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -482,7 +511,7 @@ router.get("/report/daily", verifyToken, authorizeRoles("Admin"), async (req, re
 // ==============================
 // WEEKLY ATTENDANCE REPORT
 // ==============================
-router.get("/report/weekly", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/report/weekly", auth(["Admin"]), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -510,7 +539,7 @@ router.get("/report/weekly", verifyToken, authorizeRoles("Admin"), async (req, r
 // ==============================
 // MONTHLY ATTENDANCE REPORT
 // ==============================
-router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/report/monthly", auth(["Admin"]), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -535,7 +564,33 @@ router.get("/report/monthly", verifyToken, authorizeRoles("Admin"), async (req, 
     }
 });
 
-router.post("/mark-absent", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/reports", async (req, res) => {
+  try {
+    const result = await pool.query(`
+      SELECT 
+        e.id,
+        e.name,
+        COUNT(a.id) FILTER (WHERE a.status = 'present') AS present_days,
+        COUNT(a.id) FILTER (WHERE a.status = 'absent') AS absent_days,
+        COALESCE(
+          SUM(EXTRACT(EPOCH FROM (a.check_out - a.check_in)) / 3600),
+          0
+        ) AS total_hours
+      FROM employees e
+      LEFT JOIN attendance a ON e.id = a.employee_id
+      GROUP BY e.id, e.name
+      ORDER BY e.id;
+    `);
+
+    res.json(result.rows);
+
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ error: "Internal error" });
+  }
+});
+
+router.post("/mark-absent", auth(["Admin"]), async (req, res) => {
     try {
         const employees = await pool.query(`
             SELECT id FROM employees

@@ -7,17 +7,23 @@ router.get("/", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => 
     try {
         const result = await pool.query(`
             SELECT
+                s.employee_id,
                 e.first_name,
-                s.basic_salary AS basic,
-                COALESCE(s.allowances, 0) AS allowances,
-                COALESCE(s.deductions, 0) AS deductions,
-                (s.basic_salary + COALESCE(s.allowances, 0) - COALESCE(s.deductions, 0)) AS net_salary
+                e.last_name,
+                s.basic_salary AS basic_salary,
+                COALESCE(s.allowances, 0) AS allowance,
+                COALESCE(s.deductions, 0) AS deduction,
+                (s.basic_salary + COALESCE(s.allowances, 0) - COALESCE(s.deductions, 0)) AS net_salary,
+                TO_CHAR(s.created_at, 'YYYY-MM') AS month
             FROM (
-                SELECT DISTINCT ON (employee_id) *
+                SELECT DISTINCT ON (employee_id, date_trunc('month', created_at)) 
+                    employee_id, basic_salary, allowances, deductions, created_at
                 FROM salaries
-                ORDER BY employee_id, created_at DESC
+                ORDER BY employee_id, date_trunc('month', created_at), created_at DESC
             ) s
             JOIN employees e ON e.id = s.employee_id
+            ORDER BY date_trunc('month', s.created_at) DESC
+
         `);
 
         res.json(result.rows);
@@ -94,7 +100,7 @@ router.get("/monthly/:employeeId", verifyToken, authorizeRoles("Admin", "HR"), a
             });
         }
 
-        const basicSalary = parseFloat(salaryResult.rows[0].basic_salary);
+        const basicSalary = parseFloat(salaryResult.rows[0].basic_salary) || 0;
         const dailySalary = basicSalary / 30;
 
         // Get present days
@@ -206,7 +212,13 @@ router.get("/slip/:employeeId", verifyToken, authorizeRoles("Admin", "HR"), asyn
             [employeeId]
         );
 
-        const basicSalary = parseFloat(salaryResponse.rows[0].basic_salary);
+        if (salaryResponse.rows.length === 0) {
+            return res.status(404).json({
+                message: "Salary not assigned for this employee"
+            });
+        }
+
+        const basicSalary = parseFloat(salaryResponse.rows[0].basic_salary) || 0;
         const dailySalary = basicSalary / 30;
 
         const attendanceResult = await pool.query(
