@@ -343,7 +343,7 @@ router.post("/register", verifyToken, authorizeRoles("Admin"), async (req, res) 
 });
 
 // Get all employees (No Password)
-router.get("/", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
+router.get("/", verifyToken, authorizeRoles("Admin", "HR", "Manager"), async (req, res) => {
     try {
         const tenantId = getTenantId(req);
         const result = await pool.query(
@@ -716,16 +716,32 @@ router.put("/assign-biometric/:id", verifyToken, authorizeRoles("Admin"), async 
     }
 });
 
-// Update employee
-router.put("/:id", verifyToken, async (req, res) => {
+// Update employee (Admin/HR)
+router.put("/:id", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
+        const employeeId = Number(req.params.id);
+
+        if (!Number.isInteger(employeeId) || employeeId <= 0) {
+            return res.status(400).json({ message: "Invalid employee id" });
+        }
+
+        const payload = req.body || {};
+
+        if (typeof payload !== "object" || Array.isArray(payload)) {
+            return res.status(400).json({ message: "Request body must be a valid object" });
+        }
+
+        const hasOwn = (key) => Object.prototype.hasOwnProperty.call(payload, key);
         const {
+            firstName,
+            lastName,
             first_name,
             last_name,
             email,
             department,
             password,
             shift,
+            shift_id,
             workType,
             work_type,
             selectedShift,
@@ -738,99 +754,179 @@ router.put("/:id", verifyToken, async (req, res) => {
             is_emergency_remote,
             emergencyEndDate,
             emergency_end_date
-        } = req.body;
+        } = payload;
 
         let hashedPassword = null;
-        const scheduleShift = normalizeNullableText(shift);
         const tenantId = getTenantId(req);
 
-        if (password) {
+        let employeesColumns;
+
+        try {
+            const columnsResult = await pool.query(
+                `SELECT column_name FROM information_schema.columns WHERE table_name = 'employees'`
+            );
+            employeesColumns = new Set(columnsResult.rows.map((row) => row.column_name));
+        } catch (schemaError) {
+            console.error("Employees schema introspection failed, using fallback columns:", schemaError);
+            employeesColumns = new Set([
+                "id",
+                "name",
+                "first_name",
+                "last_name",
+                "email",
+                "department",
+                "shift",
+                "password",
+                "tenant_id",
+                "updated_at"
+            ]);
+        }
+
+        const hasTenantColumn = employeesColumns.has("tenant_id");
+        const hasShiftColumn = employeesColumns.has("shift");
+
+        if (normalizeNullableText(password)) {
             hashedPassword = await bcrypt.hash(password, 10);
         }
 
-        const currentEmployeeResult = await pool.query(
-            `SELECT work_type, shift_type, allow_remote, is_emergency_remote, emergency_end_date
-             FROM employees
-             WHERE id = $1 AND tenant_id = $2`,
-            [req.params.id, tenantId]
-        );
+        const selectColumns = ["id"];
+        if (employeesColumns.has("first_name")) selectColumns.push("first_name");
+        if (employeesColumns.has("last_name")) selectColumns.push("last_name");
+        if (employeesColumns.has("name")) selectColumns.push("name");
+        if (employeesColumns.has("email")) selectColumns.push("email");
+        if (employeesColumns.has("department")) selectColumns.push("department");
+        if (employeesColumns.has("shift")) selectColumns.push("shift");
+
+        const currentEmployeeQuery = hasTenantColumn
+            ? `SELECT ${selectColumns.join(", ")}
+               FROM employees
+               WHERE id = $1 AND tenant_id = $2`
+            : `SELECT ${selectColumns.join(", ")}
+               FROM employees
+               WHERE id = $1`;
+
+        const currentEmployeeParams = hasTenantColumn
+            ? [employeeId, tenantId]
+            : [employeeId];
+
+        const currentEmployeeResult = await pool.query(currentEmployeeQuery, currentEmployeeParams);
 
         if (currentEmployeeResult.rows.length === 0) {
             return res.status(404).json({ message: "Employee not found" });
         }
 
         const currentEmployee = currentEmployeeResult.rows[0];
-        const workArrangement = resolveEmployeeWorkArrangement(
-            {
-                workType,
-                work_type,
-                selectedShift,
-                shiftType,
-                shift_type,
-                allowRemote,
-                allow_remote,
-                isEmergency,
-                isEmergencyRemote,
-                is_emergency_remote,
-                emergencyEndDate,
-                emergency_end_date
-            },
-            {
-                fallback: {
-                    workType: currentEmployee.work_type,
-                    shiftType: currentEmployee.shift_type,
-                    allowRemote: currentEmployee.allow_remote,
-                    isEmergencyRemote: currentEmployee.is_emergency_remote,
-                    emergencyEndDate: currentEmployee.emergency_end_date
-                }
-            }
-        );
+        const updates = {};
 
-        if (workArrangement.error) {
-            return res.status(400).json({ message: workArrangement.error });
+        const normalizedFirstName = normalizeNullableText(firstName ?? first_name);
+        const normalizedLastName = normalizeNullableText(lastName ?? last_name);
+        const normalizedEmail = normalizeNullableText(email);
+        const normalizedDepartment = normalizeNullableText(department);
+        const normalizedShift = hasOwn("shift_id")
+            ? normalizeNullableText(shift_id)
+            : hasOwn("shift")
+                ? normalizeNullableText(shift)
+                : undefined;
+
+        if ((hasOwn("firstName") || hasOwn("first_name")) && employeesColumns.has("first_name")) {
+            if (!normalizedFirstName) {
+                return res.status(400).json({ message: "firstName cannot be empty" });
+            }
+
+            updates.first_name = normalizedFirstName;
         }
 
-        const result = await pool.query(
-            `UPDATE employees
-             SET name = TRIM(CONCAT($1, ' ', $2)),
-                 first_name = $1,
-                 last_name = $2,
-                 email = $3,
-                 department = $4,
-                 shift = COALESCE($5, shift),
-                 work_type = $6,
-                 shift_type = $7,
-                 allow_remote = $8,
-                 is_emergency_remote = $9,
-                 emergency_end_date = $10,
-                 password = COALESCE($11, password)
-             WHERE id = $12 AND tenant_id = $13
-             RETURNING id`,
-            [
-                first_name,
-                last_name,
-                email,
-                department,
-                scheduleShift,
-                workArrangement.workType,
-                workArrangement.shiftType,
-                workArrangement.allowRemote,
-                workArrangement.isEmergencyRemote,
-                workArrangement.emergencyEndDate,
-                hashedPassword,
-                req.params.id,
-                tenantId
-            ]
-        );
+        if ((hasOwn("lastName") || hasOwn("last_name")) && employeesColumns.has("last_name")) {
+            updates.last_name = normalizedLastName || "-";
+        }
+
+        if (hasOwn("email") && employeesColumns.has("email")) {
+            if (!normalizedEmail) {
+                return res.status(400).json({ message: "email cannot be empty" });
+            }
+
+            updates.email = normalizedEmail;
+        }
+
+        if (hasOwn("department") && employeesColumns.has("department")) {
+            updates.department = normalizedDepartment;
+        }
+
+        if ((hasOwn("shift") || hasOwn("shift_id")) && hasShiftColumn) {
+            updates.shift = normalizedShift;
+        }
+
+        if (hashedPassword && employeesColumns.has("password")) {
+            updates.password = hashedPassword;
+        }
+
+        if (employeesColumns.has("name") && (
+            hasOwn("name") ||
+            hasOwn("firstName") ||
+            hasOwn("first_name") ||
+            hasOwn("lastName") ||
+            hasOwn("last_name")
+        )) {
+            const explicitName = normalizeNullableText(payload.name);
+            const nextFirstName = updates.first_name ?? currentEmployee.first_name ?? "";
+            const nextLastName = updates.last_name ?? currentEmployee.last_name ?? "";
+            const fullName = `${nextFirstName} ${nextLastName}`.trim();
+
+            updates.name = explicitName || fullName || currentEmployee.name || "User";
+        }
+
+        if (!Object.keys(updates).length) {
+            return res.status(400).json({ message: "No valid fields provided for update" });
+        }
+
+        if (employeesColumns.has("updated_at")) {
+            updates.updated_at = new Date();
+        }
+
+        const assignments = [];
+        const values = [];
+
+        Object.entries(updates).forEach(([column, value], index) => {
+            assignments.push(`${column} = $${index + 1}`);
+            values.push(value);
+        });
+
+        const whereIdIndex = values.length + 1;
+        values.push(employeeId);
+
+        const whereClause = hasTenantColumn
+            ? `id = $${whereIdIndex} AND tenant_id = $${whereIdIndex + 1}`
+            : `id = $${whereIdIndex}`;
+
+        if (hasTenantColumn) {
+            values.push(tenantId);
+        }
+
+        const returnColumns = ["id"];
+        if (employeesColumns.has("name")) returnColumns.push("name");
+        if (employeesColumns.has("first_name")) returnColumns.push("first_name");
+        if (employeesColumns.has("last_name")) returnColumns.push("last_name");
+        if (employeesColumns.has("email")) returnColumns.push("email");
+        if (employeesColumns.has("department")) returnColumns.push("department");
+        if (employeesColumns.has("shift")) returnColumns.push("shift");
+
+        const updateQuery = `
+            UPDATE employees
+            SET ${assignments.join(", ")}
+            WHERE ${whereClause}
+            RETURNING ${returnColumns.join(", ")}
+        `;
+
+        const result = await pool.query(updateQuery, values);
 
         if (result.rows.length === 0) {
             return res.status(404).json({ message: "Employee not found" });
         }
 
-        res.json({ message: "Employee updated" });
+        res.json({ message: "Employee updated", employee: result.rows[0] });
     } catch (error) {
         console.error(error);
-        res.status(500).json({ message: "Server Error" });
+        res.status(500).json({ message: error?.message || "Unable to update employee" });
     }
 });
 

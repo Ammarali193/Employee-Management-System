@@ -83,7 +83,7 @@ router.get("/my", verifyToken, async (req, res) => {
     }
 });
 
-router.get("/pending", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/pending", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -108,7 +108,7 @@ router.get("/pending", verifyToken, authorizeRoles("Admin"), async (req, res) =>
 // ==============================
 // APPROVE / REJECT LEAVE
 // ==============================
-router.put("/approve/:id", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.put("/approve/:id", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
 
         const leaveId = req.params.id;

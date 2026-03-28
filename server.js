@@ -6,11 +6,22 @@ const cors = require("cors");
 const pool = require("./config/db");
 
 const app = express();
-app.use(cors());
+app.use(cors({
+  origin: [
+    "http://localhost:3000", // jab local chal raha ho
+    "https://your-app.vercel.app" // jab deploy ho
+  ],
+  credentials: true
+}));
 app.use(express.json());
+app.use("/uploads", express.static("uploads"));
 
 const { autoAudit } = require("./middlewares/audit.middleware");
 app.use(autoAudit);
+
+if (!String(process.env.JWT_SECRET || "").trim()) {
+    console.warn("[SECURITY] JWT_SECRET is not set. Configure JWT_SECRET in your environment.");
+}
 
 process.on("unhandledRejection", (reason) => {
     console.error("UNHANDLED REJECTION:", reason);
@@ -754,15 +765,44 @@ const createAuditLogTable = async () => {
         CREATE TABLE IF NOT EXISTS audit_logs (
             id SERIAL PRIMARY KEY,
             user_id INTEGER REFERENCES employees(id) ON DELETE SET NULL,
+            user_name VARCHAR(255),
             action VARCHAR(255) NOT NULL,
             module VARCHAR(100),
             details TEXT,
+            tenant_id VARCHAR(100) DEFAULT 'default',
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
     `;
 
     try {
         await pool.query(query);
+
+        // Backfill columns for older databases where audit_logs already existed
+        await pool.query(`
+            ALTER TABLE audit_logs
+            ADD COLUMN IF NOT EXISTS user_name VARCHAR(255);
+        `);
+
+        await pool.query(`
+            ALTER TABLE audit_logs
+            ADD COLUMN IF NOT EXISTS module VARCHAR(100);
+        `);
+
+        await pool.query(`
+            ALTER TABLE audit_logs
+            ADD COLUMN IF NOT EXISTS details TEXT;
+        `);
+
+        await pool.query(`
+            ALTER TABLE audit_logs
+            ADD COLUMN IF NOT EXISTS tenant_id VARCHAR(100) DEFAULT 'default';
+        `);
+
+        await pool.query(`
+            ALTER TABLE audit_logs
+            ADD COLUMN IF NOT EXISTS created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP;
+        `);
+
         console.log("✅ Audit log table ready");
     } catch (err) {
         console.error("❌ Error creating audit log table:", err);
@@ -1077,13 +1117,37 @@ const createHolidayTable = async () => {
         CREATE TABLE IF NOT EXISTS holidays (
             id SERIAL PRIMARY KEY,
             name VARCHAR(150) NOT NULL,
-            holiday_date DATE NOT NULL,
+            start_date DATE,
+            end_date DATE,
+            holiday_date DATE,
             description TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
         );
         `;
 
         await pool.query(query);
+
+        await pool.query(`
+            ALTER TABLE holidays
+            ADD COLUMN IF NOT EXISTS start_date DATE;
+        `);
+
+        await pool.query(`
+            ALTER TABLE holidays
+            ADD COLUMN IF NOT EXISTS end_date DATE;
+        `);
+
+        await pool.query(`
+            ALTER TABLE holidays
+            ADD COLUMN IF NOT EXISTS holiday_date DATE;
+        `);
+
+        await pool.query(`
+            UPDATE holidays
+            SET start_date = COALESCE(start_date, holiday_date),
+                end_date = COALESCE(end_date, holiday_date)
+            WHERE start_date IS NULL OR end_date IS NULL;
+        `);
 
         console.log("✅ Holidays table ready");
     } catch (err) {
@@ -1316,6 +1380,7 @@ const calculateSalaryV1 = (basicSalary, presentDays) => {
 // ==============================
 const employeeRoutes = require("./routes/employee.routes");
 const employeesRoutes = require("./routes/employees");
+const adminPanelRoutes = require("./routes/admin.panel.routes");
 const authRoutes = require("./routes/auth");
 const authScopedRoutes = require("./routes/auth.routes");
 const attendanceRoutes = require("./routes/attendance.routes");
@@ -1343,11 +1408,14 @@ const complianceRoutes = require("./routes/compliance.routes");
 const lifecycleRoutes = require("./routes/lifecycle.routes");
 const reportsRoutes = require("./routes/reports");
 const shiftSimpleRoutes = require("./routes/shifts");
+const kpiRoutes = require("./routes/kpi.routes");
+const feedbackRoutes = require("./routes/feedback.routes");
+const appraisalRoutes = require("./routes/appraisal.routes");
+const onboardingRoutes = require("./routes/onboarding.routes");
 
 const maintenanceRoutes = require("./routes/maintenanceRoutes");
 
-app.use("/api", employeesRoutes);
-app.use("/api", authRoutes);
+// Mount feature-specific routes first so generic /api routers don't shadow them.
 app.use("/api/employees", employeeRoutes);
 app.use("/api/auth", authScopedRoutes);
 app.use("/api/attendance", attendanceRoutes);
@@ -1374,8 +1442,17 @@ app.use("/api/holidays", holidayRoutes);
 app.use("/api/compliance", complianceRoutes);
 app.use("/api/lifecycle", lifecycleRoutes);
 app.use("/api/simple-shifts", shiftSimpleRoutes);
+
+// Keep legacy/generic route groups last for backward compatibility.
+app.use("/api", adminPanelRoutes);
+app.use("/api", employeesRoutes);
+app.use("/api", authRoutes);
 app.use("/api", reportsRoutes);
 app.use("/api", maintenanceRoutes);
+app.use("/api/kpi", kpiRoutes);
+app.use("/api/feedback", feedbackRoutes);
+app.use("/api/appraisal", appraisalRoutes);
+app.use("/api/onboarding", onboardingRoutes);
 
 // ==============================
 // ROOT ROUTE

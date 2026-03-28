@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken } = require("../middlewares/auth.middleware");
+const { sendError, sendSuccess } = require("../controllers/apiResponse");
 
 // ADD DOCUMENT
 router.post("/add", verifyToken, async (req, res) => {
@@ -107,6 +108,52 @@ router.get("/expired", verifyToken, async (req, res) => {
     } catch (error) {
         console.error(error);
         res.status(500).json({ message: "Server error" });
+    }
+});
+
+router.get("/:id/preview", verifyToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `
+            SELECT id, document_type, file_url, expiry_date
+            FROM employee_documents
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [req.params.id]
+        );
+
+        if (!result.rows.length) {
+            return sendError(res, "Document not found", 404);
+        }
+
+        return sendSuccess(res, [result.rows[0]], "Document preview fetched");
+    } catch (error) {
+        console.error(error);
+        return sendError(res, "Server error", 500);
+    }
+});
+
+router.get("/:id/download", verifyToken, async (req, res) => {
+    try {
+        const result = await pool.query(
+            `
+            SELECT id, document_type, file_url, expiry_date
+            FROM employee_documents
+            WHERE id = $1
+            LIMIT 1
+            `,
+            [req.params.id]
+        );
+
+        if (!result.rows.length) {
+            return sendError(res, "Document not found", 404);
+        }
+
+        return sendSuccess(res, [result.rows[0]], "Document download link fetched");
+    } catch (error) {
+        console.error(error);
+        return sendError(res, "Server error", 500);
     }
 });
 

@@ -1,6 +1,18 @@
 const jwt = require("jsonwebtoken");
 
-const getJwtSecret = () => process.env.JWT_SECRET || "secretkey";
+const getJwtSecret = () => {
+    const configuredSecret = String(process.env.JWT_SECRET || "").trim();
+
+    if (configuredSecret) {
+        return configuredSecret;
+    }
+
+    if (String(process.env.NODE_ENV || "").trim().toLowerCase() === "production") {
+        throw new Error("JWT_SECRET is required in production");
+    }
+
+    return "dev-insecure-secret-change-me";
+};
 
 const extractToken = (authorizationHeader) => {
     if (!authorizationHeader) {
@@ -20,6 +32,28 @@ const extractToken = (authorizationHeader) => {
     return normalizedHeader;
 };
 
+const extractTokenFromRequest = (req) => {
+    const authorizationToken = extractToken(req.headers?.authorization);
+
+    if (authorizationToken) {
+        return authorizationToken;
+    }
+
+    const xAccessToken = extractToken(req.headers?.["x-access-token"]);
+
+    if (xAccessToken) {
+        return xAccessToken;
+    }
+
+    const legacyToken = extractToken(req.headers?.token);
+
+    if (legacyToken) {
+        return legacyToken;
+    }
+
+    return null;
+};
+
 const normalizeRoles = (roles) =>
     roles
         .flat()
@@ -30,7 +64,7 @@ const resolveTenantId = (req) => String(req.user?.tenant_id || "default").trim()
 
 const verifyToken = (req, res, next) => {
     try {
-        const token = extractToken(req.headers.authorization);
+        const token = extractTokenFromRequest(req);
 
         if (!token) {
             return res.status(401).json({
@@ -88,6 +122,7 @@ module.exports = {
     auth,
     authorizeRoles,
     extractToken,
+    extractTokenFromRequest,
     resolveTenantId,
     verifyToken
 };

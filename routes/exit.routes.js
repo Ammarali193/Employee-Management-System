@@ -2,38 +2,57 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
+const { sendError, sendSuccess } = require("../controllers/apiResponse");
 
+const ensureExitSchema = async () => {
+    await pool.query(`
+        ALTER TABLE exit_requests
+        ADD COLUMN IF NOT EXISTS exit_date DATE
+    `);
+
+    await pool.query(`
+        ALTER TABLE exit_requests
+        ADD COLUMN IF NOT EXISTS remarks TEXT
+    `);
+};
 
 // ==============================
 // EMPLOYEE RESIGNATION REQUEST
 // ==============================
-router.post("/request", verifyToken, async (req, res) => {
+const createExitRequestHandler = async (req, res) => {
     try {
+        await ensureExitSchema();
 
-        const employee_id = req.user.id;
-        const { reason } = req.body;
+        const { reason, employee_id, exit_date, remarks } = req.body || {};
+
+        if (!reason) {
+            return sendError(res, "reason is required", 400);
+        }
+
+        const resolvedEmployeeId =
+            employee_id && ["admin", "hr", "manager"].includes(String(req.user?.role || "").toLowerCase())
+                ? employee_id
+                : req.user.id;
 
         const result = await pool.query(
             `
-            INSERT INTO exit_requests (employee_id, reason)
-            VALUES ($1, $2)
+            INSERT INTO exit_requests (employee_id, reason, exit_date, remarks)
+            VALUES ($1, $2, $3, $4)
             RETURNING *
             `,
-            [employee_id, reason]
+            [resolvedEmployeeId, reason, exit_date || null, remarks || null]
         );
 
-        res.status(201).json({
-            message: "Resignation request submitted",
-            exit_request: result.rows[0]
-        });
+        return sendSuccess(res, [result.rows[0]], "Resignation request submitted", 201);
 
     } catch (error) {
         console.error("Exit request error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        return sendError(res, "Server error", 500);
     }
-});
+};
+
+router.post("/request", verifyToken, createExitRequestHandler);
+router.post("/", verifyToken, createExitRequestHandler);
 
 
 // ==============================
@@ -44,21 +63,17 @@ router.put("/approve/:id", verifyToken, authorizeRoles("Admin"), async (req, res
 
         const { id } = req.params;
 
-        // exit request get karo
         const exitRequest = await pool.query(
             `SELECT * FROM exit_requests WHERE id = $1`,
             [id]
         );
 
         if (exitRequest.rows.length === 0) {
-            return res.status(404).json({
-                message: "Exit request not found"
-            });
+            return sendError(res, "Exit request not found", 404);
         }
 
         const employee_id = exitRequest.rows[0].employee_id;
 
-        // exit approve
         const result = await pool.query(
             `
             UPDATE exit_requests
@@ -70,7 +85,6 @@ router.put("/approve/:id", verifyToken, authorizeRoles("Admin"), async (req, res
             [req.user.id, id]
         );
 
-        // employee ka role & department lo
         const employee = await pool.query(
             `
             SELECT role, department
@@ -80,10 +94,9 @@ router.put("/approve/:id", verifyToken, authorizeRoles("Admin"), async (req, res
             [employee_id]
         );
 
-        const role = employee.rows[0].role;
-        const department = employee.rows[0].department;
+        const role = employee.rows[0]?.role || "Employee";
+        const department = employee.rows[0]?.department || "General";
 
-        // employment history me exit record add karo
         await pool.query(
             `
             INSERT INTO employment_history
@@ -93,16 +106,11 @@ router.put("/approve/:id", verifyToken, authorizeRoles("Admin"), async (req, res
             [employee_id, role, department]
         );
 
-        res.json({
-            message: "Exit approved and recorded in employment history",
-            exit_request: result.rows[0]
-        });
+        return sendSuccess(res, [result.rows[0]], "Exit approved and recorded in employment history");
 
     } catch (error) {
         console.error("Exit approval error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        return sendError(res, "Server error", 500);
     }
 });
 
@@ -110,16 +118,20 @@ router.put("/approve/:id", verifyToken, authorizeRoles("Admin"), async (req, res
 // ==============================
 // GET ALL EXIT REQUESTS
 // ==============================
-router.get("/", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/", verifyToken, authorizeRoles("Admin", "HR", "Manager"), async (_req, res) => {
     try {
+        await ensureExitSchema();
 
         const result = await pool.query(
             `
             SELECT 
                 er.id,
+                er.employee_id,
                 e.first_name,
                 e.last_name,
                 er.reason,
+                er.remarks,
+                er.exit_date,
                 er.status,
                 er.requested_at
             FROM exit_requests er
@@ -128,15 +140,11 @@ router.get("/", verifyToken, authorizeRoles("Admin"), async (req, res) => {
             `
         );
 
-        res.json({
-            exit_requests: result.rows
-        });
+        return sendSuccess(res, result.rows, "Exit requests fetched");
 
     } catch (error) {
         console.error("Exit fetch error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        return sendError(res, "Server error", 500);
     }
 });
 

@@ -2,6 +2,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const auth = require("../middleware/authMiddleware");
+const { getAttendanceReports } = require("../controllers/attendance.controller");
 
 // Health check route
 router.get("/attendance", auth([]), async (req, res) => {
@@ -48,7 +49,7 @@ router.get("/stats", (req, res) => {
 // ✅ CHECK-IN ROUTE
 // ==============================
 // ✅ POST Check-in (MOCK)
-router.post("/checkin", (req, res) => {
+router.post("/checkin", auth([]), (req, res) => {
   res.json({
     message: "Check-in successful",
   });
@@ -77,7 +78,7 @@ router.post("/checkout", auth([]), async (req, res) => {
   }
 });
 
-router.get("/my", async (req, res) => {
+router.get("/my", auth([]), async (req, res) => {
     try {
         const employeeId = req.user?.id || req.query.employee_id;
 
@@ -126,7 +127,7 @@ router.get("/history", auth([]), async (req, res) => {
 // ==============================
 // 🔹 MONTHLY ATTENDANCE REPORT
 // ==============================
-router.post("/rfid/checkin", async (req, res) => {
+router.post("/rfid/checkin", auth([]), async (req, res) => {
     try {
 
         const { rfid_card_id } = req.body;
@@ -210,7 +211,7 @@ router.post("/rfid/checkout", async (req, res) => {
     }
 });
 
-router.post("/qr/checkin", async (req, res) => {
+router.post("/qr/checkin", auth([]), async (req, res) => {
     try {
 
         const { qr_code } = req.body;
@@ -354,7 +355,7 @@ router.post("/gps/checkout", auth([]), async (req, res) => {
     }
 });
 
-router.post("/biometric/checkin", async (req, res) => {
+router.post("/biometric/checkin", auth([]), async (req, res) => {
     try {
 
         const { biometric_id } = req.body;
@@ -564,31 +565,7 @@ router.get("/report/monthly", auth(["Admin"]), async (req, res) => {
     }
 });
 
-router.get("/reports", async (req, res) => {
-  try {
-    const result = await pool.query(`
-      SELECT 
-        e.id,
-        e.name,
-        COUNT(a.id) FILTER (WHERE a.status = 'present') AS present_days,
-        COUNT(a.id) FILTER (WHERE a.status = 'absent') AS absent_days,
-        COALESCE(
-          SUM(EXTRACT(EPOCH FROM (a.check_out - a.check_in)) / 3600),
-          0
-        ) AS total_hours
-      FROM employees e
-      LEFT JOIN attendance a ON e.id = a.employee_id
-      GROUP BY e.id, e.name
-      ORDER BY e.id;
-    `);
-
-    res.json(result.rows);
-
-  } catch (error) {
-    console.error(error);
-    res.status(500).json({ error: "Internal error" });
-  }
-});
+router.get("/reports", getAttendanceReports);
 
 router.post("/mark-absent", auth(["Admin"]), async (req, res) => {
     try {

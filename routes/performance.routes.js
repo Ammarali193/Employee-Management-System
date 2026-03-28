@@ -4,7 +4,7 @@ const pool = require("../config/db");
 const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
 
 // GET all performance records
-router.get("/", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -28,7 +28,7 @@ router.get("/", verifyToken, authorizeRoles("Admin"), async (req, res) => {
 });
 
 // ADD PERFORMANCE REVIEW (Admin Only)
-router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.post("/add", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const {
             employee_id,
@@ -80,7 +80,7 @@ router.post("/add", verifyToken, authorizeRoles("Admin"), async (req, res) => {
 });
 
 // TOP performers
-router.get("/top", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/top", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const result = await pool.query(`
             SELECT
@@ -105,7 +105,7 @@ router.get("/top", verifyToken, authorizeRoles("Admin"), async (req, res) => {
 });
 
 // PERFORMANCE SUMMARY (ADMIN)
-router.get("/summary", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/summary", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const totalReviews = await pool.query(
             `SELECT COUNT(*) FROM performance_reviews`
@@ -172,7 +172,7 @@ router.get("/me", verifyToken, async (req, res) => {
 });
 
 // TOP PERFORMERS LIST
-router.get("/top-performers", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/top-performers", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
         const result = await pool.query(
             `
@@ -203,7 +203,7 @@ router.get("/top-performers", verifyToken, authorizeRoles("Admin"), async (req, 
     }
 });
 
-router.post("/kpi", verifyToken, authorizeRoles("Admin"), async (req,res)=>{
+router.post("/kpi", verifyToken, authorizeRoles("Admin", "HR"), async (req,res)=>{
     try{
 
         const {employee_id, goal, target_value} = req.body;

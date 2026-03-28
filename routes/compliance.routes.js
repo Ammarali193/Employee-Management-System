@@ -2,8 +2,54 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
+const { sendError, sendSuccess } = require("../controllers/apiResponse");
 
-router.get("/report", async (req,res)=>{
+router.post("/policies", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+    try {
+        const { policy_name, description } = req.body || {};
+
+        if (!policy_name) {
+            return sendError(res, "policy_name is required", 400);
+        }
+
+        const result = await pool.query(
+            `
+            INSERT INTO policies (title, category, description)
+            VALUES ($1, $2, $3)
+            RETURNING id, title AS policy_name, description, created_at
+            `,
+            [policy_name, "Compliance", description || null]
+        );
+
+        return sendSuccess(res, [result.rows[0]], "Policy created", 201);
+    } catch (error) {
+        console.error("Create policy error:", error);
+        return sendError(res, "Server error", 500);
+    }
+});
+
+router.get("/policies", verifyToken, authorizeRoles("Admin", "HR", "Manager", "Employee"), async (_req, res) => {
+    try {
+        const result = await pool.query(
+            `
+            SELECT
+                id,
+                title AS policy_name,
+                description,
+                created_at
+            FROM policies
+            ORDER BY created_at DESC
+            `
+        );
+
+        return sendSuccess(res, result.rows, "Policies fetched");
+    } catch (error) {
+        console.error("Get policies error:", error);
+        return sendError(res, "Server error", 500);
+    }
+});
+
+router.get("/report", verifyToken, authorizeRoles("Admin", "HR", "Manager"), async (req,res)=>{
     try{
 
         const result = await pool.query(`

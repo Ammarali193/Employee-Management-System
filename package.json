@@ -21,9 +21,9 @@
     "express": "^5.2.1",
     "jsonwebtoken": "^9.0.3",
     "mongoose": "^9.2.2",
+    "multer": "^2.1.1",
     "pg": "^8.20.0",
     "serverless-http": "^3.2.0",
     "typescript-cached-transpile": "^0.0.6"
   }
 }
-

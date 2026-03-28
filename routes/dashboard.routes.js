@@ -6,7 +6,7 @@ const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware"
 // ==============================
 // 🔹 ADMIN DASHBOARD SUMMARY
 // ==============================
-router.get("/summary", verifyToken, authorizeRoles("Admin"), async (req, res) => {
+router.get("/summary", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
 
         const totalEmployees = await pool.query(

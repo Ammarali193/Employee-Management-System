@@ -2,52 +2,64 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
 const bcrypt = require("bcrypt");
-const { verifyToken } = require("../middlewares/auth.middleware");
+const { verifyToken, authorizeRoles } = require("../middlewares/auth.middleware");
+const { sendError, sendSuccess } = require("../controllers/apiResponse");
 
+const ensureCandidateSchema = async () => {
+    await pool.query(`
+        ALTER TABLE candidates
+        ADD COLUMN IF NOT EXISTS status VARCHAR(40) DEFAULT 'Applied'
+    `);
+};
 
 // ==============================
 // CANDIDATE APPLY FOR JOB
 // ==============================
-router.post("/apply", async (req, res) => {
+const applyCandidateHandler = async (req, res) => {
     try {
+        await ensureCandidateSchema();
 
-        const { name, email, phone, resume_url, job_id } = req.body;
+        const { name, email, phone, resume_url, job_id, status } = req.body;
 
-        if (!name || !job_id) {
-            return res.status(400).json({
-                message: "Name and Job ID are required"
-            });
+        if (!name || !email || !job_id) {
+            return sendError(res, "name, email, and job_id are required", 400);
         }
 
         const result = await pool.query(
             `
             INSERT INTO candidates
-            (name, email, phone, resume_url, job_id)
-            VALUES ($1, $2, $3, $4, $5)
-            RETURNING *
+            (name, email, phone, resume_url, job_id, status)
+            VALUES ($1, $2, $3, $4, $5, $6)
+            RETURNING id, name, email, phone, resume_url, job_id, status, created_at
             `,
-            [name, email, phone, resume_url, job_id]
+            [
+                String(name).trim(),
+                String(email).trim().toLowerCase(),
+                phone ?? null,
+                resume_url ?? null,
+                job_id,
+                String(status || "Applied").trim() || "Applied"
+            ]
         );
 
-        res.status(201).json({
-            message: "Application submitted successfully",
-            candidate: result.rows[0]
-        });
+        return sendSuccess(res, [result.rows[0]], "Application submitted successfully", 201);
 
     } catch (error) {
         console.error("Candidate apply error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        return sendError(res, "Server error", 500);
     }
-});
+};
+
+router.post("/apply", applyCandidateHandler);
+router.post("/", verifyToken, authorizeRoles("Admin", "HR", "Manager"), applyCandidateHandler);
 
 
 // ==============================
 // GET ALL CANDIDATES
 // ==============================
-router.get("/", async (req, res) => {
+router.get("/", verifyToken, authorizeRoles("Admin", "HR", "Manager"), async (_req, res) => {
     try {
+        await ensureCandidateSchema();
 
         const result = await pool.query(
             `
@@ -57,53 +69,47 @@ router.get("/", async (req, res) => {
                 c.email,
                 c.phone,
                 c.status,
-                j.title AS job_title
+                c.job_id,
+                c.resume_url,
+                j.title AS job_title,
+                c.created_at
             FROM candidates c
-            JOIN job_posts j ON c.job_id = j.id
+            LEFT JOIN job_posts j ON c.job_id = j.id
             ORDER BY c.created_at DESC
             `
         );
 
-        res.json({
-            candidates: result.rows
-        });
+        return sendSuccess(res, result.rows, "Candidates fetched");
 
     } catch (error) {
         console.error("Candidate fetch error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        return sendError(res, "Server error", 500);
     }
 });
 
 // ==============================
-// HIRE CANDIDATE → CREATE EMPLOYEE
+// HIRE CANDIDATE ? CREATE EMPLOYEE
 // ==============================
-router.put("/hire/:id", verifyToken, async (req, res) => {
+router.put("/hire/:id", verifyToken, authorizeRoles("Admin", "HR"), async (req, res) => {
     try {
 
         const { id } = req.params;
 
-        // Get candidate
         const candidate = await pool.query(
             "SELECT * FROM candidates WHERE id = $1",
             [id]
         );
 
         if (candidate.rows.length === 0) {
-            return res.status(404).json({
-                message: "Candidate not found"
-            });
+            return sendError(res, "Candidate not found", 404);
         }
 
         const data = candidate.rows[0];
 
-        // Name split
-        const nameParts = data.name.split(" ");
-        const firstName = nameParts[0];
-        const lastName = nameParts[1] || "User";
+        const nameParts = String(data.name || "").trim().split(" ");
+        const firstName = nameParts[0] || "Candidate";
+        const lastName = nameParts.slice(1).join(" ") || "User";
 
-        // Default password
         const hashedPassword = await bcrypt.hash("123456", 10);
 
         const result = await pool.query(
@@ -111,21 +117,16 @@ router.put("/hire/:id", verifyToken, async (req, res) => {
             INSERT INTO employees
             (name, first_name, last_name, email, password, role, department, join_date, status)
             VALUES ($1,$2,$3,$4,$5,'Employee','New Hire',CURRENT_DATE,'active')
-            RETURNING id, name, first_name, email
+            RETURNING id, name, first_name, last_name, email
             `,
             [data.name, firstName, lastName, data.email, hashedPassword]
         );
 
-        res.json({
-            message: "Candidate hired successfully",
-            employee: result.rows[0]
-        });
+        return sendSuccess(res, [result.rows[0]], "Candidate hired successfully");
 
     } catch (error) {
         console.error("Hiring error:", error);
-        res.status(500).json({
-            message: "Server error"
-        });
+        return sendError(res, "Server error", 500);
     }
 });
 

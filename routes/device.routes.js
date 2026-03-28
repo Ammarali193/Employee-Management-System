@@ -1,9 +1,21 @@
 const express = require("express");
 const router = express.Router();
 const pool = require("../config/db");
+const { verifyToken } = require("../middlewares/auth.middleware");
+
+const verifyDeviceOrToken = (req, res, next) => {
+    const configuredDeviceKey = String(process.env.DEVICE_API_KEY || "").trim();
+    const providedDeviceKey = String(req.headers["x-device-key"] || "").trim();
+
+    if (configuredDeviceKey && providedDeviceKey && providedDeviceKey === configuredDeviceKey) {
+        return next();
+    }
+
+    return verifyToken(req, res, next);
+};
 
 // device attendance endpoint
-router.post("/attendance", async (req, res) => {
+router.post("/attendance", verifyDeviceOrToken, async (req, res) => {
     try {
         const { device_id, employee_code, timestamp } = req.body;
 
