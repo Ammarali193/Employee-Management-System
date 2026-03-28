@@ -16,8 +16,8 @@ type Maintenance = {
   asset_id: number;
   issue: string;
   status: string;
-  reported_date: string;
-  resolved_date?: string;
+  date?: string;
+  reported_date?: string;
 };
 
 type Asset = {
@@ -76,10 +76,6 @@ export default function MaintenancePage() {
   const updateStatus = async (id: number, newStatus: string) => {
     try {
       const updateData: Record<string, any> = { status: newStatus };
-
-      if (newStatus === MAINTENANCE_STATUS.RESOLVED) {
-        updateData.resolved_date = new Date().toISOString().split("T")[0];
-      }
 
       await maintenanceService.updateMaintenance(id, updateData);
 
@@ -194,37 +190,22 @@ export default function MaintenancePage() {
                     </span>
                   </td>
                   <td className="p-3 text-sm text-slate-600">
-                    {record.reported_date}
+                    {record.date || record.reported_date || "-"}
                   </td>
                   <td className="p-3 text-sm text-slate-600">
-                    {record.resolved_date || "-"}
+                    {record.status === MAINTENANCE_STATUS.COMPLETED ? "Completed" : "-"}
                   </td>
                   <td className="p-3 text-center">
-                    {record.status !== MAINTENANCE_STATUS.RESOLVED && (
+                    {record.status !== MAINTENANCE_STATUS.COMPLETED && (
                       <>
-                        {record.status === MAINTENANCE_STATUS.PENDING && (
-                          <button
-                            onClick={() =>
-                              updateStatus(
-                                record.id,
-                                MAINTENANCE_STATUS.IN_PROGRESS
-                              )
-                            }
-                            className="rounded-lg bg-orange-500 px-2 py-1.5 text-xs text-white transition-colors hover:bg-orange-600 mr-2"
-                            type="button"
-                          >
-                            Start
-                          </button>
-                        )}
-
                         <button
                           onClick={() =>
-                            updateStatus(record.id, MAINTENANCE_STATUS.RESOLVED)
+                            updateStatus(record.id, MAINTENANCE_STATUS.COMPLETED)
                           }
                           className="rounded-lg bg-green-500 px-2 py-1.5 text-xs text-white transition-colors hover:bg-green-600 mr-2"
                           type="button"
                         >
-                          Resolve
+                          Mark Completed
                         </button>
                       </>
                     )}
@@ -255,16 +236,10 @@ export default function MaintenancePage() {
             <span className="text-sm text-slate-600">Issue reported, not started</span>
           </div>
           <div className="flex items-center gap-2">
-            <span className="inline-block rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-800">
-              In Progress
-            </span>
-            <span className="text-sm text-slate-600">Maintenance work in progress</span>
-          </div>
-          <div className="flex items-center gap-2">
             <span className="inline-block rounded-full bg-green-100 px-3 py-1 text-xs font-semibold text-green-800">
-              Resolved
+              Completed
             </span>
-            <span className="text-sm text-slate-600">Issue fixed and resolved</span>
+            <span className="text-sm text-slate-600">Issue fixed and closed</span>
           </div>
         </div>
       </div>

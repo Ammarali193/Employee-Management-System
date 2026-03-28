@@ -38,7 +38,7 @@ export default function PayslipPage() {
     setLoading(true);
     try {
       const result = await payrollService.getPayslip(data.employee_id);
-      setPayslip(result);
+      setPayslip(result as PayslipData);
     } catch (error: any) {
       const message =
         error?.response?.data?.message || "Failed to fetch payslip.";

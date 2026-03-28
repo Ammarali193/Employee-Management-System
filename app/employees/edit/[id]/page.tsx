@@ -4,6 +4,10 @@ import { useEffect, useState, type ChangeEvent, type FormEvent } from "react";
 import { useRouter, useParams } from "next/navigation";
 import Link from "next/link";
 import employeeService from "@/services/employeeService";
+import { toast } from "react-hot-toast";
+
+const extractApiMessage = (error: unknown, fallback: string) =>
+  (error as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback;
 
 export default function EditEmployee() {
   const router = useRouter();
@@ -11,8 +15,8 @@ export default function EditEmployee() {
   const employeeId = typeof params?.id === "string" ? params.id : "";
 
   const [employee, setEmployee] = useState({
-    first_name: "",
-    last_name: "",
+    firstName: "",
+    lastName: "",
     email: "",
     department: "",
     password: "",
@@ -25,17 +29,22 @@ export default function EditEmployee() {
         return;
       }
 
-      const res = await fetch(`http://localhost:5000/api/employees/${employeeId}`);
-      const data = await res.json();
+      try {
+        const data = await employeeService.getEmployee(employeeId);
 
-      setEmployee({
-        first_name: data.first_name ?? "",
-        last_name: data.last_name ?? "",
-        email: data.email ?? "",
-        department: data.department ?? "",
-        password: "",
-      });
-      setShiftId(String(data.shift_id ?? "1"));
+        setEmployee({
+          firstName: data.first_name ?? data.firstName ?? "",
+          lastName: data.last_name ?? data.lastName ?? "",
+          email: data.email ?? "",
+          department: data.department ?? "",
+          password: "",
+        });
+        setShiftId(String(data.shift_id ?? "1"));
+      } catch (error) {
+        console.error("[employees/edit] failed to load employee", error);
+        toast.error("Employee not found");
+        router.push("/employees");
+      }
     };
 
     void loadEmployee();
@@ -48,15 +57,33 @@ export default function EditEmployee() {
     });
   };
 
+  const compactPayload = (payload: Record<string, unknown>) =>
+    Object.fromEntries(
+      Object.entries(payload).filter(([, value]) => value !== undefined),
+    );
+
   const saveEmployee = async () => {
     if (!employeeId) {
       return;
     }
 
-    await employeeService.updateEmployee(employeeId, {
-      ...employee,
-      shift_id: Number(shiftId),
-    });
+    try {
+      const payload = compactPayload({
+        firstName: employee.firstName.trim() || undefined,
+        lastName: employee.lastName.trim() || undefined,
+        email: employee.email.trim() || undefined,
+        department: employee.department.trim() || undefined,
+        password: employee.password.trim() || undefined,
+        shift_id: shiftId ? Number(shiftId) : undefined,
+      });
+
+      await employeeService.updateEmployee(employeeId, payload);
+      toast.success("Employee updated successfully");
+    } catch (error) {
+      console.error("[employees/edit] update failed", error);
+      toast.error(extractApiMessage(error, "Unable to update employee"));
+      throw error;
+    }
   };
 
   const handleSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -68,8 +95,20 @@ export default function EditEmployee() {
   };
 
   const handleAssignShift = async () => {
-    await saveEmployee();
-    alert("Shift assigned successfully");
+    if (!employeeId || !shiftId) {
+      toast.error("Select a shift first");
+      return;
+    }
+
+    try {
+      await employeeService.updateEmployee(employeeId, {
+        shift_id: Number(shiftId),
+      });
+      toast.success("Shift assigned successfully");
+    } catch (error) {
+      console.error("[employees/edit] assign shift failed", error);
+      toast.error(extractApiMessage(error, "Unable to assign shift"));
+    }
   };
 
   return (
@@ -87,16 +126,16 @@ export default function EditEmployee() {
 
       <form onSubmit={handleSubmit} className="space-y-4">
         <input
-          name="first_name"
-          value={employee.first_name}
+          name="firstName"
+          value={employee.firstName}
           onChange={handleChange}
           placeholder="First Name"
           className="w-full border p-2"
         />
 
         <input
-          name="last_name"
-          value={employee.last_name}
+          name="lastName"
+          value={employee.lastName}
           onChange={handleChange}
           placeholder="Last Name"
           className="w-full border p-2"
@@ -130,6 +169,8 @@ export default function EditEmployee() {
         <select
           value={shiftId}
           onChange={(e) => setShiftId(e.target.value)}
+          title="Select Shift"
+          aria-label="Select Shift"
           className="w-full border p-2"
         >
           <option value="1">Morning</option>

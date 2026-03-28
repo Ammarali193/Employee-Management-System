@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import type { FormEvent } from "react";
 import { useRouter } from "next/navigation";
 
 export default function AssignAsset() {
@@ -9,7 +10,7 @@ export default function AssignAsset() {
   const [asset, setAsset] = useState("");
   const [employee, setEmployee] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     console.log({

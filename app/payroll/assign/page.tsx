@@ -14,8 +14,8 @@ import employeeService from "@/services/employeeService";
 const assignSalarySchema = z.object({
   employee_id: z.string().min(1, "Employee is required"),
   basic_salary: z.number().min(1, "Basic salary must be greater than 0"),
-  allowance: z.number().min(0, "Allowance must be non-negative").default(0),
-  deduction: z.number().min(0, "Deduction must be non-negative").default(0),
+  allowance: z.number().min(0, "Allowance must be non-negative"),
+  deduction: z.number().min(0, "Deduction must be non-negative"),
   month: z.string().min(1, "Month is required"),
   year: z.number().min(2000, "Year must be valid"),
 });

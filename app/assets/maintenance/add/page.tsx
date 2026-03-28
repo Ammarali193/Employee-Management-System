@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { toast } from "react-hot-toast";
@@ -45,7 +45,7 @@ export default function AddMaintenancePage() {
 
   const isFormComplete = Boolean(assetId && issue.trim());
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const handleSubmit = async (e: FormEvent) => {
     e.preventDefault();
     setError("");
 
@@ -66,7 +66,7 @@ export default function AddMaintenancePage() {
         asset_id: assetId,
         issue: issue.trim(),
         status: MAINTENANCE_STATUS.PENDING,
-        reported_date: new Date().toISOString().split("T")[0],
+        date: new Date().toISOString().split("T")[0],
       });
 
       toast.success("Maintenance request added!");

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import type { FormEvent } from "react";
 
 export default function AddAsset() {
   const router = useRouter();
@@ -10,7 +11,7 @@ export default function AddAsset() {
   const [type, setType] = useState("");
   const [serial, setSerial] = useState("");
 
-  const handleSubmit = (e) => {
+  const handleSubmit = (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
 
     console.log({

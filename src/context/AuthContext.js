@@ -4,18 +4,39 @@ import { createContext, useState } from "react";
 
 export const AuthContext = createContext();
 
+const normalizeToken = (rawToken) => {
+  const token = String(rawToken || "").trim();
+
+  if (!token || token === "null" || token === "undefined") {
+    return null;
+  }
+
+  return token.replace(/^"|"$/g, "").replace(/^Bearer\s+/i, "");
+};
+
+const decodeBase64Url = (value) => {
+  const normalized = String(value || "").replace(/-/g, "+").replace(/_/g, "/");
+  const padded = normalized.padEnd(Math.ceil(normalized.length / 4) * 4, "=");
+  return atob(padded);
+};
+
 const parseUserFromToken = (token) => {
   try {
-    const [, payload = ""] = token.split(".");
-    const normalizedPayload = payload.replace(/-/g, "+").replace(/_/g, "/");
-    const decodedPayload = JSON.parse(atob(normalizedPayload));
+    const safeToken = normalizeToken(token);
+
+    if (!safeToken) {
+      return null;
+    }
+
+    const [, payload = ""] = safeToken.split(".");
+    const decodedPayload = JSON.parse(decodeBase64Url(payload));
 
     return {
-      token,
+      token: safeToken,
       role: decodedPayload?.role ?? "admin",
     };
   } catch {
-    localStorage.removeItem("token");
+    // Keep token in storage and let API/auth flow handle invalid token response.
     return null;
   }
 };
@@ -25,7 +46,7 @@ const getInitialUser = () => {
     return null;
   }
 
-  const token = localStorage.getItem("token");
+  const token = normalizeToken(localStorage.getItem("token"));
 
   return token ? parseUserFromToken(token) : null;
 };
@@ -34,8 +55,16 @@ export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(getInitialUser);
 
   const login = (token, role) => {
-    localStorage.setItem("token", token);
-    setUser({ token, role });
+    const safeToken = normalizeToken(token);
+
+    if (safeToken) {
+      localStorage.setItem("token", safeToken);
+      setUser({ token: safeToken, role });
+      return;
+    }
+
+    localStorage.removeItem("token");
+    setUser(null);
   };
 
   const logout = () => {

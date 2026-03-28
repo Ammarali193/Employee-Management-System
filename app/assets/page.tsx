@@ -1,281 +1,270 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { useRouter } from "next/navigation";
-import Link from "next/link";
-import assetService from "@/services/assetService";
-import { ASSET_STATUS } from "@/constants/assetConstants";
+import { toast } from "react-hot-toast";
+import api from "../../services/api";
 
 type Asset = {
   id: number;
-  name: string;
-  type: string;
-  status: string;
+  name?: string;
+  type?: string;
+  status?: string;
   assigned_to?: string;
 };
 
-type EditingAsset = {
+type Employee = {
   id: number;
-  name: string;
-  type: string;
-} | null;
+  first_name?: string;
+  last_name?: string;
+  name?: string;
+};
+
+const PAGE_SIZE = 10;
+
+const extractArray = (payload: unknown): Record<string, unknown>[] => {
+  if (Array.isArray(payload)) return payload as Record<string, unknown>[];
+
+  if (payload && typeof payload === "object") {
+    const data = payload as Record<string, unknown>;
+    if (Array.isArray(data.assets)) return data.assets as Record<string, unknown>[];
+    if (Array.isArray(data.employees)) return data.employees as Record<string, unknown>[];
+    if (Array.isArray(data.data)) return data.data as Record<string, unknown>[];
+    if (Array.isArray(data.items)) return data.items as Record<string, unknown>[];
+  }
+
+  return [];
+};
 
 export default function AssetsPage() {
   const [assets, setAssets] = useState<Asset[]>([]);
-  const [search, setSearch] = useState("");
+  const [employees, setEmployees] = useState<Employee[]>([]);
   const [loading, setLoading] = useState(true);
-  const [editingAsset, setEditingAsset] = useState<EditingAsset>(null);
-  const router = useRouter();
+  const [error, setError] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [page, setPage] = useState(1);
+  const [assetId, setAssetId] = useState("");
+  const [employeeId, setEmployeeId] = useState("");
+  const [assignmentDate, setAssignmentDate] = useState("");
 
-  const filteredAssets = useMemo(
-    () =>
-      assets.filter(
-        (asset) =>
-          asset.name?.toLowerCase().includes(search.toLowerCase()) ||
-          asset.type?.toLowerCase().includes(search.toLowerCase())
-      ),
-    [assets, search]
-  );
+  const loadData = async () => {
+    setLoading(true);
+    setError(null);
 
-  const loadAssets = async () => {
     try {
-      const data = await assetService.getAssets();
-      setAssets(Array.isArray(data) ? data : []);
-    } catch (error) {
-      console.error("Failed to load assets:", error);
+      const [assetsRes, employeesRes] = await Promise.all([
+        api.get("/assets"),
+        api.get("/employees"),
+      ]);
+
+      setAssets(extractArray(assetsRes.data) as Asset[]);
+      setEmployees(extractArray(employeesRes.data) as Employee[]);
+    } catch (loadError) {
+      console.error("[assets] Failed to load", loadError);
+      setError("Unable to load assets data");
+      toast.error("Assets load failed");
     } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
-    loadAssets();
+    void loadData();
   }, []);
 
-  const handleEdit = (asset: Asset) => {
-    setEditingAsset({
-      id: asset.id,
-      name: asset.name,
-      type: asset.type,
-    });
-  };
-
-  const resetForm = () => {
-    setEditingAsset(null);
-  };
-
-  const updateAsset = async () => {
-    if (!editingAsset || !editingAsset.name || !editingAsset.type) {
-      alert("Please fill in all fields");
+  const assignAsset = async () => {
+    if (!assetId || !employeeId || !assignmentDate) {
+      toast.error("Please select asset, employee, and assignment date");
       return;
     }
 
     try {
-      await assetService.updateAsset(editingAsset.id, {
-        name: editingAsset.name,
-        type: editingAsset.type,
+      await api.post("/assets/assign", {
+        asset_id: Number(assetId),
+        employee_id: Number(employeeId),
+        assignment_date: assignmentDate,
       });
 
-      // Optimistic update: update local state instead of full refetch
-      setAssets((prev) =>
-        prev.map((a) =>
-          a.id === editingAsset.id
-            ? { ...a, name: editingAsset.name, type: editingAsset.type }
-            : a
-        )
+      toast.success("Asset assigned successfully");
+      setAssetId("");
+      setEmployeeId("");
+      setAssignmentDate("");
+      await loadData();
+    } catch (assignError) {
+      console.error("[assets] Assign failed", assignError);
+      toast.error("Unable to assign asset");
+    }
+  };
+
+  const filteredAssets = useMemo(() => {
+    const keyword = search.trim().toLowerCase();
+    return assets.filter((asset) => {
+      return (
+        String(asset.name ?? "").toLowerCase().includes(keyword) ||
+        String(asset.type ?? "").toLowerCase().includes(keyword) ||
+        String(asset.status ?? "").toLowerCase().includes(keyword)
       );
+    });
+  }, [assets, search]);
 
-      resetForm();
-    } catch (error) {
-      console.error("Failed to update asset:", error);
-      alert("Failed to update asset");
-    }
-  };
+  const totalPages = Math.max(1, Math.ceil(filteredAssets.length / PAGE_SIZE));
+  const paginatedAssets = filteredAssets.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE);
 
-  const deleteAsset = async (id: number) => {
-    if (!confirm("Are you sure you want to delete this asset?")) {
-      return;
-    }
+  useEffect(() => {
+    setPage(1);
+  }, [search]);
 
-    try {
-      await assetService.deleteAsset(id);
-
-      // Optimistic update: remove from local state instead of full refetch
-      setAssets((prev) => prev.filter((a) => a.id !== id));
-    } catch (error) {
-      console.error("Failed to delete asset:", error);
-      alert("Failed to delete asset");
-    }
-  };
-
-  const isFormComplete = editingAsset?.name && editingAsset?.type;
-
-  if (loading) {
-    return <div className="p-10">Loading assets...</div>;
-  }
+  useEffect(() => {
+    if (page > totalPages) setPage(totalPages);
+  }, [page, totalPages]);
 
   return (
-    <div className="p-6">
-      <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-2xl font-bold">Asset Management</h1>
-        <div className="space-x-2">
-          <Link
-            href="/assets/add"
-            className="rounded-lg bg-blue-600 px-4 py-2 text-white transition-colors hover:bg-blue-700"
+    <div className="space-y-6">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <h2 className="text-xl font-semibold text-slate-900">Assign Asset</h2>
+        <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
+          <select
+            value={assetId}
+            onChange={(event) => setAssetId(event.target.value)}
+            title="Select asset"
+            aria-label="Select asset"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
-            Add Asset
-          </Link>
-          <Link
-            href="/assets/assign"
-            className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700"
+            <option value="">Select Asset</option>
+            {assets.map((asset) => (
+              <option key={asset.id} value={asset.id}>
+                {asset.name ?? `Asset #${asset.id}`}
+              </option>
+            ))}
+          </select>
+
+          <select
+            value={employeeId}
+            onChange={(event) => setEmployeeId(event.target.value)}
+            title="Select employee"
+            aria-label="Select employee"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
           >
-            Assign Asset
-          </Link>
-          <Link
-            href="/assets/maintenance"
-            className="rounded-lg bg-purple-600 px-4 py-2 text-white transition-colors hover:bg-purple-700"
+            <option value="">Select Employee</option>
+            {employees.map((employee) => {
+              const label =
+                `${employee.first_name ?? ""} ${employee.last_name ?? ""}`.trim() ||
+                employee.name ||
+                `Employee #${employee.id}`;
+
+              return (
+                <option key={employee.id} value={employee.id}>
+                  {label}
+                </option>
+              );
+            })}
+          </select>
+
+          <input
+            type="date"
+            value={assignmentDate}
+            onChange={(event) => setAssignmentDate(event.target.value)}
+            title="Assignment date"
+            aria-label="Assignment date"
+            className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+          />
+
+          <button
+            type="button"
+            onClick={() => void assignAsset()}
+            className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
           >
-            Maintenance
-          </Link>
+            Assign
+          </button>
         </div>
-      </div>
+      </section>
 
-      {/* Search Bar */}
-      <input
-        type="text"
-        placeholder="Search assets by name or type..."
-        className="mb-6 w-full rounded-lg border border-slate-200 px-4 py-2 text-sm transition-colors focus:outline-none focus:ring-2 focus:ring-blue-500"
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-      />
-
-      {/* Edit Form */}
-      {editingAsset !== null && (
-        <div className="mb-6 rounded-lg bg-white p-5 shadow">
-          <h2 className="mb-4 font-semibold text-slate-900">Edit Asset</h2>
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-              Asset Name
-              <input
-                type="text"
-                value={editingAsset.name}
-                onChange={(e) =>
-                  setEditingAsset({ ...editingAsset, name: e.target.value })
-                }
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
-              />
-            </label>
-
-            <label className="flex flex-col gap-2 text-sm font-medium text-slate-700">
-              Asset Type
-              <input
-                type="text"
-                value={editingAsset.type}
-                onChange={(e) =>
-                  setEditingAsset({ ...editingAsset, type: e.target.value })
-                }
-                className="rounded-lg border border-slate-200 px-3 py-2 text-sm text-slate-900"
-              />
-            </label>
-          </div>
-
-          <div className="mt-4 flex gap-2">
+      <section className="rounded-2xl border border-slate-200 bg-white p-5">
+        <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+          <h2 className="text-xl font-semibold text-slate-900">Asset Status</h2>
+          <div className="flex items-center gap-2">
+            <input
+              value={search}
+              onChange={(event) => setSearch(event.target.value)}
+              placeholder="Search assets"
+              className="rounded-lg border border-slate-300 px-3 py-2 text-sm"
+            />
             <button
-              onClick={updateAsset}
-              disabled={!isFormComplete}
-              className="rounded-lg bg-green-600 px-4 py-2 text-white transition-colors hover:bg-green-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+              type="button"
+              onClick={() => void loadData()}
+              className="rounded-lg border border-slate-300 px-4 py-2 text-sm text-slate-700 hover:bg-slate-100"
             >
-              Update Asset
-            </button>
-
-            <button
-              onClick={resetForm}
-              className="rounded-lg bg-gray-500 px-4 py-2 text-white transition-colors hover:bg-gray-600"
-            >
-              Cancel
+              Refresh
             </button>
           </div>
         </div>
-      )}
 
-      {/* Assets Table */}
-      {filteredAssets.length === 0 ? (
-        <div className="rounded-lg bg-slate-50 p-8 text-center text-slate-600">
-          {assets.length === 0
-            ? "No assets found. Add your first asset to get started!"
-            : "No assets match your search."}
-        </div>
-      ) : (
-        <div className="overflow-x-auto rounded-lg shadow">
-          <table className="w-full bg-white">
-            <thead>
-              <tr className="border-b bg-slate-50">
-                <th className="p-3 text-left text-sm font-semibold text-slate-900">
-                  Name
-                </th>
-                <th className="p-3 text-left text-sm font-semibold text-slate-900">
-                  Type
-                </th>
-                <th className="p-3 text-left text-sm font-semibold text-slate-900">
-                  Status
-                </th>
-                <th className="p-3 text-left text-sm font-semibold text-slate-900">
-                  Assigned To
-                </th>
-                <th className="p-3 text-center text-sm font-semibold text-slate-900">
-                  Actions
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {filteredAssets.map((asset) => (
-                <tr
-                  key={asset.id}
-                  className="border-b transition-colors hover:bg-slate-50"
-                >
-                  <td className="p-3 text-sm text-slate-900">{asset.name}</td>
-                  <td className="p-3 text-sm text-slate-900">{asset.type}</td>
-                  <td className="p-3 text-sm">
-                    <span
-                      className={`inline-block rounded-full px-3 py-1 text-xs font-semibold ${
-                        asset.status === ASSET_STATUS.AVAILABLE
-                          ? "bg-green-100 text-green-800"
-                          : "bg-blue-100 text-blue-800"
-                      }`}
-                    >
-                      {asset.status}
-                    </span>
-                  </td>
-                  <td className="p-3 text-sm text-slate-900">
-                    {asset.assigned_to ? (
-                      <span className="font-medium text-blue-700">
-                        {asset.assigned_to}
-                      </span>
-                    ) : (
-                      <span className="text-slate-400">Not Assigned</span>
-                    )}
-                  </td>
-                  <td className="p-3 text-center">
-                    <button
-                      onClick={() => handleEdit(asset)}
-                      className="rounded-lg bg-yellow-500 px-3 py-1.5 text-xs text-white transition-colors hover:bg-yellow-600 mr-2"
-                    >
-                      Edit
-                    </button>
+        {error ? (
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 p-3 text-sm text-red-700">
+            {error}
+          </div>
+        ) : null}
 
-                    <button
-                      onClick={() => deleteAsset(asset.id)}
-                      className="rounded-lg bg-red-500 px-3 py-1.5 text-xs text-white transition-colors hover:bg-red-600"
-                    >
-                      Delete
-                    </button>
-                  </td>
+        {loading ? (
+          <div className="py-10 text-center text-sm text-slate-600">Loading assets...</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="min-w-full border border-slate-200">
+              <thead className="bg-slate-100">
+                <tr>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-slate-700">Name</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-slate-700">Type</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-slate-700">Status</th>
+                  <th className="px-3 py-2 text-left text-sm font-semibold text-slate-700">Assigned To</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
+              </thead>
+              <tbody>
+                {paginatedAssets.map((asset, index) => (
+                  <tr key={asset.id ?? `asset-${index}`} className="border-t border-slate-200">
+                    <td className="px-3 py-2 text-sm text-slate-700">{asset.name ?? "-"}</td>
+                    <td className="px-3 py-2 text-sm text-slate-700">{asset.type ?? "-"}</td>
+                    <td className="px-3 py-2 text-sm text-slate-700">{asset.status ?? "-"}</td>
+                    <td className="px-3 py-2 text-sm text-slate-700">{asset.assigned_to ?? "Not assigned"}</td>
+                  </tr>
+                ))}
+                {paginatedAssets.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="px-3 py-8 text-center text-sm text-slate-500">
+                      No assets found
+                    </td>
+                  </tr>
+                ) : null}
+              </tbody>
+            </table>
+          </div>
+        )}
+
+        <div className="mt-4 flex items-center justify-between text-sm text-slate-600">
+          <span>
+            Showing {(page - 1) * PAGE_SIZE + 1} - {Math.min(page * PAGE_SIZE, filteredAssets.length)} of {filteredAssets.length}
+          </span>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.max(1, prev - 1))}
+              disabled={page === 1}
+              className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100 disabled:opacity-40"
+            >
+              Previous
+            </button>
+            <span>
+              Page {page} / {totalPages}
+            </span>
+            <button
+              type="button"
+              onClick={() => setPage((prev) => Math.min(totalPages, prev + 1))}
+              disabled={page === totalPages}
+              className="rounded border border-slate-300 px-3 py-1 hover:bg-slate-100 disabled:opacity-40"
+            >
+              Next
+            </button>
+          </div>
         </div>
-      )}
+      </section>
     </div>
   );
 }

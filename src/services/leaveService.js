@@ -1,8 +1,16 @@
 import api from "./api";
 
+const unwrap = (payload) => {
+  if (payload && typeof payload === "object" && "data" in payload) {
+    return payload.data;
+  }
+
+  return payload;
+};
+
 const applyLeave = async (data) => {
-const res = await api.post("/leave/apply", data);
-  return res.data;
+  const res = await api.post("/leaves/apply", data);
+  return unwrap(res.data);
 };
 
 const normalizeLeaveResponse = (data) => {
@@ -10,48 +18,23 @@ const normalizeLeaveResponse = (data) => {
 };
 
 const getMyLeaves = async () => {
-  const token = localStorage.getItem("token");
-  const endpoints = ["/leave/my"]; // FIXED
-
-  for (const endpoint of endpoints) {
-    try {
-      const res = await api.get(endpoint, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-        },
-      });
-      return normalizeLeaveResponse(res.data);
-    } catch (error) {
-      // try next endpoint
-    }
-  }
-
-  throw new Error("Unable to fetch user leave requests");
+  const res = await api.get("/leaves");
+  return normalizeLeaveResponse(unwrap(res.data));
 };
 
 const getAllLeaves = async () => {
-  const endpoints = ["/leave/all", "/leave", "/leaves", "/leave/requests", "/leave-requests"]; // FIXED
-
-  for (const endpoint of endpoints) {
-    try {
-      const res = await api.get(endpoint);
-      return normalizeLeaveResponse(res.data);
-    } catch (error) {
-      // try next endpoint
-    }
-  }
-
-  throw new Error("Unable to fetch leave requests");
+  const res = await api.get("/leaves");
+  return normalizeLeaveResponse(unwrap(res.data));
 };
 
 const approveLeave = async (id) => {
-const res = await api.put(`/leave/approve/${id}`);
-  return res.data;
+  const res = await api.put(`/leaves/${id}`, { status: "Approved" });
+  return unwrap(res.data);
 };
 
 const rejectLeave = async (id) => {
-const res = await api.put(`/leave/reject/${id}`);
-  return res.data;
+  const res = await api.put(`/leaves/${id}`, { status: "Rejected" });
+  return unwrap(res.data);
 };
 
 const leaveService = {

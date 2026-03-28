@@ -225,6 +225,15 @@ const isNotFoundError = (error) => error?.response?.status === 404;
 const isRecord = (value) =>
   value !== null && typeof value === "object" && !Array.isArray(value);
 
+const removeUndefinedValues = (value) => {
+  if (!isRecord(value)) {
+    return value;
+  }
+
+  const entries = Object.entries(value).filter(([, item]) => item !== undefined);
+  return Object.fromEntries(entries);
+};
+
 const normalizeEmployee = (employee) => {
   if (!isRecord(employee)) {
     return employee;
@@ -266,6 +275,11 @@ const normalizeEmployee = (employee) => {
 };
 
 const normalizeEmployeeResponse = (payload) => {
+  // Support unified backend response: { success, data, message }
+  if (isRecord(payload) && "data" in payload) {
+    return normalizeEmployeeResponse(payload.data);
+  }
+
   if (Array.isArray(payload)) {
     return payload.map(normalizeEmployee);
   }
@@ -326,6 +340,16 @@ const toEmployeePayload = (employee = {}) => {
     payload.is_remote = payload.isRemote;
   }
 
+  if (!("name" in payload) || !String(payload.name || "").trim()) {
+    const first = String(payload.first_name ?? "").trim();
+    const last = String(payload.last_name ?? "").trim();
+    const fullName = `${first} ${last}`.trim();
+
+    if (fullName) {
+      payload.name = fullName;
+    }
+  }
+
   delete payload.firstName;
   delete payload.lastName;
   delete payload.shiftId;
@@ -358,6 +382,38 @@ const toLegacyEmployeePayload = (employee = {}) => {
     workType:
       employee.workType ?? employee.work_type ?? payload.work_type ?? "office",
   };
+};
+
+const toEmployeeUpdatePayload = (employee = {}) => {
+  if (!isRecord(employee)) {
+    return employee;
+  }
+
+  const payload = { ...employee };
+
+  if ("first_name" in payload && !("firstName" in payload)) {
+    payload.firstName = payload.first_name;
+  }
+
+  if ("last_name" in payload && !("lastName" in payload)) {
+    payload.lastName = payload.last_name;
+  }
+
+  if ("shiftId" in payload && !("shift_id" in payload)) {
+    payload.shift_id = payload.shiftId;
+  }
+
+  delete payload.first_name;
+  delete payload.last_name;
+  delete payload.name;
+  delete payload.shift;
+  delete payload.shiftId;
+
+  if (payload.password === "") {
+    delete payload.password;
+  }
+
+  return removeUndefinedValues(payload);
 };
 
 export const getEmployees = async () => {
@@ -403,7 +459,7 @@ export const addEmployee = async (data) => {
 export const createEmployee = addEmployee;
 
 export const updateEmployee = async (id, data) => {
-  const res = await api.put(`${EMPLOYEE_API}/${id}`, toEmployeePayload(data));
+  const res = await api.put(`${EMPLOYEE_API}/${id}`, toEmployeeUpdatePayload(data));
   return normalizeEmployeeResponse(res.data);
 };
 

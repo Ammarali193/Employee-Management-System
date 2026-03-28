@@ -1,2 +1,11 @@
-# EMS Deployment TODO - Vercel (Frontend) + Railway (Backend)\n\n## Step 1: File Setup ✅\n- [x] Created vercel.json\n- [x] Created railway.toml  \n- [x] Updated src/services/api.js (env priority)\n- [x] Files ready\n\n## Step 2: Git & Deploy ⏳\n- [ ] git add . && git commit -m \"Prepare deployment: Vercel + Railway\" && git push\n- [ ] Install CLIs: `npm i -g vercel @railway/cli`\n- [ ] Vercel: `vercel login`, `vercel` (in root dir)\n- [ ] Railway: `cd backend`, `railway login`, `railway init/link`, `railway up`\n- [ ] Add env vars in dashboards (DB URL etc.)\n- [ ] Update vercel.json with actual Railway URL\n- [ ] Redeploy frontend\n\n## Step 3: Test ✅\n\n**Current Status: Ready for git push!**
+# EMS Frontend Setup for Production API
 
+## Completed
+- [x] Create `.env.local` with `NEXT_PUBLIC_API_URL=https://employee-management-system-production-9f59.up.railway.app/api`
+- [x] Update `services/api.js` to use `process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000/api"`
+
+## Next Steps
+1. Restart Next.js dev server: `npm run dev`
+2. Test API calls (login, fetch employees/shifts/etc.)
+3. For Vercel deployment: Add `NEXT_PUBLIC_API_URL` env var in Vercel dashboard
+4. Deploy: `vercel --prod`

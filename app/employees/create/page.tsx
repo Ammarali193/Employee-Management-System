@@ -17,9 +17,14 @@ type EmployeeForm = {
   first_name: string;
   last_name: string;
   email: string;
-  password: string;
+  phone: string;
+  gender: string;
+  date_of_birth: string;
   department: string;
+  role: string;
   shift: string;
+  joining_date: string;
+  password: string;
   workType: string;
 };
 
@@ -39,6 +44,11 @@ const getErrorMessage = (error: unknown, fallbackMessage: string) => {
   return fallbackMessage;
 };
 
+const inputClassName =
+  "w-full rounded-lg border border-gray-300 px-3 py-2 text-sm text-gray-800 outline-none transition focus:ring-2 focus:ring-blue-500";
+
+const labelClassName = "mb-1 block text-sm text-gray-600";
+
 export default function CreateEmployee() {
   const router = useRouter();
   const [submitting, setSubmitting] = useState(false);
@@ -47,9 +57,14 @@ export default function CreateEmployee() {
     first_name: "",
     last_name: "",
     email: "",
-    password: "",
+    phone: "",
+    gender: "",
+    date_of_birth: "",
     department: "",
+    role: "",
     shift: "",
+    joining_date: "",
+    password: "",
     workType: "office",
   });
 
@@ -83,92 +98,229 @@ export default function CreateEmployee() {
     form.first_name.trim() &&
       form.last_name.trim() &&
       form.email.trim() &&
+      form.department.trim() &&
+      form.role.trim() &&
+      form.shift.trim() &&
       form.password,
   );
 
   return (
-    <div className="p-6 max-w-md">
-      <h1 className="text-2xl font-bold mb-6">Create Employee</h1>
+    <div className="bg-gray-100 px-4 py-8 sm:px-6 lg:px-8">
+      <div className="mx-auto w-full max-w-4xl rounded-2xl bg-white p-8 shadow-lg">
+        <header>
+          <h1 className="text-2xl font-bold text-gray-800">Add Employee</h1>
+          <p className="mt-1 text-sm text-gray-500">
+            Enter personal, professional, and security details to create a new employee profile.
+          </p>
+        </header>
 
-      <form onSubmit={handleSubmit} className="space-y-4">
-        <input
-          name="first_name"
-          placeholder="First Name"
-          className="w-full border p-2"
-          value={form.first_name}
-          onChange={handleChange}
-          disabled={submitting}
-        />
+        <form onSubmit={handleSubmit} className="mt-8 space-y-6">
+          <section className="space-y-4">
+            <h2 className="text-base font-semibold text-gray-800">Personal Details</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="first_name" className={labelClassName}>
+                  First Name
+                </label>
+                <input
+                  id="first_name"
+                  name="first_name"
+                  value={form.first_name}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  required
+                />
+              </div>
 
-        <input
-          name="last_name"
-          placeholder="Last Name"
-          className="w-full border p-2"
-          value={form.last_name}
-          onChange={handleChange}
-          disabled={submitting}
-        />
+              <div>
+                <label htmlFor="last_name" className={labelClassName}>
+                  Last Name
+                </label>
+                <input
+                  id="last_name"
+                  name="last_name"
+                  value={form.last_name}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  required
+                />
+              </div>
 
-        <input
-          type="email"
-          name="email"
-          placeholder="Email"
-          className="w-full border p-2"
-          value={form.email}
-          onChange={handleChange}
-          disabled={submitting}
-        />
+              <div>
+                <label htmlFor="email" className={labelClassName}>
+                  Email
+                </label>
+                <input
+                  id="email"
+                  type="email"
+                  name="email"
+                  value={form.email}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  required
+                />
+              </div>
 
-        <input
-          name="password"
-          type="password"
-          placeholder="Password"
-          className="w-full border p-2"
-          value={form.password}
-          onChange={handleChange}
-          disabled={submitting}
-        />
+              <div>
+                <label htmlFor="phone" className={labelClassName}>
+                  Phone
+                </label>
+                <input
+                  id="phone"
+                  type="tel"
+                  name="phone"
+                  value={form.phone}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  placeholder="e.g. +92 300 0000000"
+                />
+              </div>
 
-        <input
-          name="department"
-          placeholder="Department"
-          className="w-full border p-2"
-          value={form.department}
-          onChange={handleChange}
-          disabled={submitting}
-        />
+              <div>
+                <label htmlFor="gender" className={labelClassName}>
+                  Gender
+                </label>
+                <select
+                  id="gender"
+                  name="gender"
+                  value={form.gender}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                >
+                  <option value="">Select Gender</option>
+                  <option value="male">Male</option>
+                  <option value="female">Female</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
 
-        <select
-          name="workType"
-          className="w-full border p-2"
-          value={form.workType}
-          onChange={handleChange}
-          disabled={submitting}
-        >
-          <option value="office">Office</option>
-          <option value="remote">Remote</option>
-        </select>
+              <div>
+                <label htmlFor="date_of_birth" className={labelClassName}>
+                  Date of Birth
+                </label>
+                <input
+                  id="date_of_birth"
+                  type="date"
+                  name="date_of_birth"
+                  value={form.date_of_birth}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+          </section>
 
-        <select
-          name="shift"
-          className="w-full border p-2"
-          value={form.shift}
-          onChange={handleChange}
-          disabled={submitting}
-        >
-          <option value="">Select Shift</option>
-          <option value="morning">Morning</option>
-          <option value="evening">Evening</option>
-          <option value="night">Night</option>
-        </select>
+          <section className="space-y-4">
+            <h2 className="text-base font-semibold text-gray-800">Professional Details</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="department" className={labelClassName}>
+                  Department
+                </label>
+                <input
+                  id="department"
+                  name="department"
+                  value={form.department}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  required
+                />
+              </div>
 
-        <button
-          disabled={!isFormComplete || submitting}
-          className="bg-blue-600 text-white px-4 py-2 rounded disabled:cursor-not-allowed disabled:bg-slate-300"
-        >
-          {submitting ? "Adding..." : "Add Employee"}
-        </button>
-      </form>
+              <div>
+                <label htmlFor="role" className={labelClassName}>
+                  Role
+                </label>
+                <select
+                  id="role"
+                  name="role"
+                  value={form.role}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  required
+                >
+                  <option value="">Select Role</option>
+                  <option value="employee">Employee</option>
+                  <option value="manager">Manager</option>
+                  <option value="admin">Admin</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="shift" className={labelClassName}>
+                  Shift
+                </label>
+                <select
+                  id="shift"
+                  name="shift"
+                  value={form.shift}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  required
+                >
+                  <option value="">Select Shift</option>
+                  <option value="morning">Morning</option>
+                  <option value="evening">Evening</option>
+                  <option value="night">Night</option>
+                </select>
+              </div>
+
+              <div>
+                <label htmlFor="joining_date" className={labelClassName}>
+                  Joining Date
+                </label>
+                <input
+                  id="joining_date"
+                  type="date"
+                  name="joining_date"
+                  value={form.joining_date}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                />
+              </div>
+            </div>
+          </section>
+
+          <section className="space-y-4">
+            <h2 className="text-base font-semibold text-gray-800">Security</h2>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+              <div>
+                <label htmlFor="password" className={labelClassName}>
+                  Password
+                </label>
+                <input
+                  id="password"
+                  name="password"
+                  type="password"
+                  value={form.password}
+                  onChange={handleChange}
+                  className={inputClassName}
+                  disabled={submitting}
+                  required
+                />
+              </div>
+            </div>
+          </section>
+
+          <button
+            type="submit"
+            disabled={!isFormComplete || submitting}
+            className="w-full rounded-lg bg-blue-600 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:bg-slate-300"
+          >
+            {submitting ? "Adding Employee..." : "Add Employee"}
+          </button>
+        </form>
+      </div>
     </div>
   );
 }

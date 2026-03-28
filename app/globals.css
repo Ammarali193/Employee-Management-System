@@ -7,11 +7,12 @@
   --panel: rgba(255, 255, 255, 0.76);
   --panel-strong: #fffdfa;
   --line: rgba(18, 32, 45, 0.1);
-  --accent: #0f766e;
-  --accent-soft: #d7f4ef;
-  --accent-warm: #d97706;
-  --accent-warm-soft: #fce7c3;
-  --font-sans: "Aptos", "Trebuchet MS", "Segoe UI", sans-serif;
+  --accent: #2563eb;
+  --accent-soft: #dbeafe;
+  --accent-warm: #16a34a;
+  --accent-warm-soft: #dcfce7;
+  --accent-danger: #dc2626;
+  --font-sans: var(--font-inter), "Poppins", "Inter", "Segoe UI", sans-serif;
   --font-mono: "Consolas", "SFMono-Regular", monospace;
 }
 
@@ -27,6 +28,7 @@
   --color-accent-soft: var(--accent-soft);
   --color-accent-warm: var(--accent-warm);
   --color-accent-warm-soft: var(--accent-warm-soft);
+  --color-accent-danger: var(--accent-danger);
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 }
@@ -42,8 +44,8 @@ html {
 body {
   min-height: 100vh;
   background:
-    radial-gradient(circle at top left, rgba(15, 118, 110, 0.14), transparent 32%),
-    radial-gradient(circle at top right, rgba(217, 119, 6, 0.1), transparent 26%),
+    radial-gradient(circle at top left, rgba(37, 99, 235, 0.14), transparent 32%),
+    radial-gradient(circle at top right, rgba(22, 163, 74, 0.1), transparent 26%),
     linear-gradient(180deg, #f8f3ec 0%, #f4efe7 100%);
   color: var(--foreground);
   font-family: var(--font-sans);
@@ -55,13 +57,14 @@ a {
 }
 
 ::selection {
-  background: rgba(15, 118, 110, 0.18);
+  background: rgba(37, 99, 235, 0.18);
   color: var(--foreground);
 }
 
 .glass-panel {
   border: 1px solid rgba(255, 255, 255, 0.88);
   background: var(--panel);
+  -webkit-backdrop-filter: blur(18px);
   backdrop-filter: blur(18px);
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.08);
 }
@@ -79,3 +82,19 @@ a {
   background-position: center;
   background-size: 26px 26px;
 }
+
+@keyframes fadeInUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-in-up {
+  animation: fadeInUp 420ms ease-out both;
+}
+

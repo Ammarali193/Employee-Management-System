@@ -56,6 +56,14 @@ const postLogin = async (url, payload) => {
     );
   }
 
+  if (normalizedResponse.user?.role) {
+    localStorage.setItem("role", normalizedResponse.user.role);
+  }
+
+  if (normalizedResponse.user?.tenant_id) {
+    localStorage.setItem("tenant_id", normalizedResponse.user.tenant_id);
+  }
+
   return normalizedResponse;
 };
 
@@ -65,31 +73,9 @@ const login = async (email, password) => {
     password,
   };
 
-  try {
-    return await postLogin("/login", payload);
-  } catch (error) {
-    if (!isNotFoundError(error)) {
-      if (process.env.NODE_ENV !== "production") {
-        console.error("[auth] Login failed", {
-          url: "/login",
-          email,
-          hasPassword: Boolean(password),
-          status: error?.response?.status,
-          data: error?.response?.data,
-        });
-      }
-      throw error;
-    }
-
-    if (process.env.NODE_ENV !== "production") {
-      console.warn("[auth] /login returned 404, retrying /auth/login", {
-        email,
-      });
-    }
-
-    return postLogin("/auth/login", payload);
-  }
+  return await postLogin("/auth/login", payload);
 };
+
 
 const authService = { login };
 
