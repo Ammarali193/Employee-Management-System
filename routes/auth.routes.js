@@ -16,6 +16,8 @@ const debugAuthLog = (message, details = {}) => {
     console.log(`[AUTH DEBUG] ${message}`, details);
 };
 
+const normalizeRole = (role) => String(role || "employee").trim().toLowerCase() || "employee";
+
 const normalizeNullableText = (value) => {
     if (value === undefined || value === null) {
         return null;
@@ -114,6 +116,7 @@ router.post("/login", async (req, res) => {
             debugAuthLog("No auth user found", { normalizedEmail });
             return res.status(400).json({ message: "User not found" });
         }
+
         let valid = false;
 
         debugAuthLog("Auth user found", {
@@ -148,10 +151,12 @@ router.post("/login", async (req, res) => {
             return res.status(400).json({ message: "Wrong password" });
         }
 
+        const normalizedRole = normalizeRole(dbUser.role);
+
         const token = jwt.sign(
             {
                 id: dbUser.id,
-                role: dbUser.role,
+                role: normalizedRole,
                 tenant_id: dbUser.tenant_id || "default"
             },
             process.env.JWT_SECRET,
@@ -160,7 +165,7 @@ router.post("/login", async (req, res) => {
 
         debugAuthLog("JWT generated", {
             userId: dbUser.id,
-            role: dbUser.role,
+            role: normalizedRole,
             tenantId: dbUser.tenant_id || "default"
         });
 
@@ -170,12 +175,12 @@ router.post("/login", async (req, res) => {
                 id: dbUser.id,
                 email: dbUser.email,
                 name: dbUser.name,
-                role: dbUser.role,
+                role: normalizedRole,
                 tenant_id: dbUser.tenant_id || "default"
             }
         });
     } catch (err) {
-        console.error("AUTH LOGIN ERROR:", err);
+        console.error("🔥 LOGIN ERROR:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
@@ -217,7 +222,7 @@ router.post("/create-hr", auth(["admin"]), async (req, res) => {
 
         res.json(result.rows[0]);
     } catch (err) {
-        console.error(err);
+        console.error("🔥 CREATE-HR ERROR:", err.message);
         res.status(500).json({ error: err.message });
     }
 });
