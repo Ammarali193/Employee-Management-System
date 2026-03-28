@@ -2,10 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import advancedService from "@/services/advancedService";
-import { EnterpriseFormSection } from "@/components/ui/enterprise-form-section";
-import { EnterpriseTable } from "@/components/ui/enterprise-table";
-import { EnterpriseModal } from "@/components/ui/enterprise-modal";
+import advancedService from "../../services/advancedService";
+import { EnterpriseFormSection } from "../../components/ui/enterprise-form-section";
+import { EnterpriseTable } from "../../components/ui/enterprise-table";
+import { EnterpriseModal } from "../../components/ui/enterprise-modal";
 
 type DocumentRecord = {
   id?: number;
@@ -143,27 +143,27 @@ export default function DocumentsPage() {
       <EnterpriseTable
         rows={documents}
         emptyLabel="No documents found"
-        rowKey={(row, index) => row.id ?? `document-${index}`}
+        rowKey={(row: DocumentRecord, index: number) => row.id ?? `document-${index}`}
         columns={[
           {
             key: "employee",
             header: "Employee",
-            render: (row) => row.employee_name || row.employee_id || "-",
+            render: (row: DocumentRecord) => row.employee_name || row.employee_id || "-",
           },
           {
             key: "document",
             header: "Document",
-            render: (row) => row.document_name || "-",
+            render: (row: DocumentRecord) => row.document_name || "-",
           },
           {
             key: "expiry",
             header: "Expiry",
-            render: (row) => (row.expiry_date ? new Date(row.expiry_date).toLocaleDateString() : "-"),
+            render: (row: DocumentRecord) => (row.expiry_date ? new Date(row.expiry_date).toLocaleDateString() : "-"),
           },
           {
             key: "alert",
             header: "Alert",
-            render: (row) => (
+            render: (row: DocumentRecord) => (
               <span
                 className={
                   row.is_expiring_soon
@@ -178,7 +178,7 @@ export default function DocumentsPage() {
           {
             key: "actions",
             header: "Actions",
-            render: (row) => (
+            render: (row: DocumentRecord) => (
               <div className="flex gap-2">
                 <button
                   type="button"

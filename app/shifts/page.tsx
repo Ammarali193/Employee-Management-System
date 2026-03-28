@@ -2,8 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { toast } from "react-hot-toast";
-import shiftService from "@/services/shiftService";
-import employeeService from "@/services/employeeService";
+import shiftService from "../../services/shiftService";
+import employeeService from "../../services/employeeService";
 
 type Shift = {
   id: number | string;

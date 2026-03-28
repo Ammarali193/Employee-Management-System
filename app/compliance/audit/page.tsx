@@ -2,8 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { toast } from "react-hot-toast";
-import api from "../../../services/api";
-import { EnterpriseTable } from "@/components/ui/enterprise-table";
+import advancedService from "../../../services/advancedService";
+import { EnterpriseTable } from "../../../components/ui/enterprise-table";
 
 type AuditLog = {
   id?: number;
@@ -32,8 +32,8 @@ export default function ComplianceAuditPage() {
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const response = await api.get("/audit-logs");
-      setRows(unwrapRows(response.data));
+      const payload = await advancedService.getAuditLogs();
+      setRows(unwrapRows(payload));
     } catch (error) {
       console.error("[audit] load failed", error);
       toast.error("Failed to load audit logs");
@@ -95,27 +95,27 @@ export default function ComplianceAuditPage() {
       <EnterpriseTable
         rows={filtered}
         emptyLabel="No audit logs found"
-        rowKey={(row, index) => row.id ?? `audit-${index}`}
+        rowKey={(row: AuditLog, index: number) => row.id ?? `audit-${index}`}
         columns={[
           {
             key: "user",
             header: "User",
-            render: (row) => row.user_name ?? row.user ?? "-",
+            render: (row: AuditLog) => row.user_name ?? row.user ?? "-",
           },
           {
             key: "module",
             header: "Module",
-            render: (row) => row.module ?? "-",
+            render: (row: AuditLog) => row.module ?? "-",
           },
           {
             key: "action",
             header: "Action",
-            render: (row) => row.action ?? "-",
+            render: (row: AuditLog) => row.action ?? "-",
           },
           {
             key: "time",
             header: "Timestamp",
-            render: (row) => row.created_at ?? "-",
+            render: (row: AuditLog) => row.created_at ?? "-",
           },
         ]}
       />
