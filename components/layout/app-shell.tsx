@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, type ReactNode } from "react";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
+import { Toaster } from "react-hot-toast";
 import { Navbar } from "@/components/layout/navbar";
 import { Sidebar } from "@/components/layout/sidebar";
 import { getActiveHref } from "@/components/layout/workspace-config";
@@ -12,6 +13,7 @@ type AppShellProps = {
 
 export function AppShell({ children }: AppShellProps) {
   const pathname = usePathname() ?? "/";
+  const router = useRouter();
   const [isSidebarOpen, setIsSidebarOpen] = useState(false);
 
   useEffect(() => {
@@ -27,13 +29,48 @@ export function AppShell({ children }: AppShellProps) {
     };
   }, [isSidebarOpen]);
 
+  useEffect(() => {
+    if (pathname === "/login") {
+      return;
+    }
+
+    const role = String(localStorage.getItem("role") || "employee").toLowerCase();
+
+    if (role !== "hr") {
+      return;
+    }
+
+    const hrAllowedPrefixes = [
+      "/hr/dashboard",
+      "/dashboard",
+      "/employees",
+      "/leaves",
+      "/leave",
+      "/attendance",
+      "/attendance/reports",
+      "/performance",
+      "/documents",
+      "/holidays",
+      "/jobs",
+      "/candidates",
+      "/lifecycle/jobs",
+      "/lifecycle/candidates",
+    ];
+
+    const isAllowedPath = hrAllowedPrefixes.some((prefix) => pathname === prefix || pathname.startsWith(`${prefix}/`));
+
+    if (!isAllowedPath) {
+      router.replace("/hr/dashboard");
+    }
+  }, [pathname, router]);
+
   if (pathname === "/login") {
     return <>{children}</>;
   }
 
   return (
-    <div className="relative min-h-screen overflow-x-hidden">
-      <div className="pointer-events-none absolute inset-x-0 top-0 h-[320px] bg-[radial-gradient(circle_at_top_left,_rgba(15,118,110,0.16),transparent_42%),radial-gradient(circle_at_top_right,_rgba(217,119,6,0.14),transparent_30%)]" />
+    <div className="relative min-h-screen overflow-x-hidden bg-gray-100">
+      <Toaster position="top-right" toastOptions={{ duration: 3000 }} />
       <Sidebar
         activeHref={getActiveHref(pathname)}
         isOpen={isSidebarOpen}

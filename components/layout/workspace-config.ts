@@ -104,12 +104,6 @@ export const navigationSections: NavSection[] = [
         cue: "EM",
       },
       {
-        href: "/employees/create",
-        label: "Add Employee",
-        description: "Create a new employee profile and onboarding pack.",
-        cue: "AE",
-      },
-      {
         href: "/attendance",
         label: "Attendance",
         description: "Daily presence, punctuality, and workforce coverage.",
@@ -127,6 +121,12 @@ export const navigationSections: NavSection[] = [
         description: "Roster design, handoffs, and capacity balancing.",
         cue: "SH",
       },
+      {
+        href: "/shifts",
+        label: "Shift Management",
+        description: "Create shifts and assign employees to rosters.",
+        cue: "SM",
+      },
     ],
   },
   {
@@ -139,6 +139,12 @@ export const navigationSections: NavSection[] = [
         cue: "LV",
       },
       {
+        href: "/leaves",
+        label: "Leaves",
+        description: "Apply leave requests and approve or reject pending entries.",
+        cue: "LM",
+      },
+      {
         href: "/leave/apply",
         label: "Apply Leave",
         description: "Submit absence requests with coverage context.",
@@ -149,6 +155,12 @@ export const navigationSections: NavSection[] = [
         label: "Leave Reports",
         description: "Balance usage, peak seasons, and entitlement drift.",
         cue: "LR",
+      },
+      {
+        href: "/leave-balance",
+        label: "Leave Balance",
+        description: "Total, used, and remaining leave summaries.",
+        cue: "LB",
       },
       {
         href: "/payroll",
@@ -174,6 +186,12 @@ export const navigationSections: NavSection[] = [
         description: "Cost variance, tax summaries, and exports.",
         cue: "RP",
       },
+      {
+        href: "/reports",
+        label: "Reports",
+        description: "Attendance, payroll, and leave report snapshots.",
+        cue: "RR",
+      },
     ],
   },
   {
@@ -196,6 +214,12 @@ export const navigationSections: NavSection[] = [
         label: "Maintenance",
         description: "Repair windows, service quality, and return dates.",
         cue: "MT",
+      },
+      {
+        href: "/documents",
+        label: "Documents",
+        description: "Upload employee documents and track expiry alerts.",
+        cue: "DC",
       },
       {
         href: "/performance",
@@ -249,6 +273,24 @@ export const navigationSections: NavSection[] = [
         label: "Compliance Reports",
         description: "Control performance, breach logs, and export packs.",
         cue: "CR",
+      },
+      {
+        href: "/audit-logs",
+        label: "Audit Logs",
+        description: "Trace admin actions and module activity.",
+        cue: "AL",
+      },
+      {
+        href: "/holidays",
+        label: "Holidays",
+        description: "Create and manage organization holiday calendar.",
+        cue: "HD",
+      },
+      {
+        href: "/tenants",
+        label: "Tenants",
+        description: "Manage tenant plans and activation status.",
+        cue: "TN",
       },
       {
         href: "/lifecycle",
